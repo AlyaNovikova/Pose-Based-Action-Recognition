@@ -43,6 +43,7 @@ class Compose:
             # print(data['input_shape'])
             # print('tttttttt', self.transforms)
             data = t(data)
+            # print('!!!!!!!!!! DATA', data)
             if data is None:
                 return None
         return data

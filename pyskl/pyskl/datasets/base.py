@@ -280,6 +280,8 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
 
         # print('results base dataset', results)
         results['test_mode'] = self.test_mode
+
+        # print('aaaaaaaaaaa train self.pipeline(results)', self.pipeline(results))
         return self.pipeline(results)
 
     def prepare_test_frames(self, idx):
@@ -323,6 +325,9 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
         # print('results base dataset', results)
 
         results['test_mode'] = self.test_mode
+
+        print('aaaaaaaaaaa test self.pipeline(results)', self.pipeline(results))
+
         return self.pipeline(results)
 
     def __len__(self):

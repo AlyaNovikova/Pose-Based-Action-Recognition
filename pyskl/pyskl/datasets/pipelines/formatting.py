@@ -233,7 +233,10 @@ class FormatShape(object):
 
                 imgs = imgs.reshape((-1, num_clips, clip_len) + imgs.shape[1:])
                 # N_crops x N_clips x L x C x H x W
-                imgs = np.transpose(imgs, (0, 1, 3, 2, 4, 5))
+                # imgs = np.transpose(imgs, (0, 1, 3, 2, 4, 5))
+                # imgs2 = np.transpose(imgs, (0, 1, 3, 2, 4, 5))
+
+                imgs = np.transpose(imgs, (0, 1, 2, 3, 4, 5))
                 # N_crops x N_clips x C x L x H x W
                 imgs = imgs.reshape((-1, ) + imgs.shape[2:])
                 # M' x C x L x H x W
