@@ -19,6 +19,7 @@ class Compose:
         self.transforms = []
         for transform in transforms:
             if isinstance(transform, dict):
+                print('transform', transform)
                 transform = build_from_cfg(transform, PIPELINES)
                 self.transforms.append(transform)
             elif callable(transform):
@@ -38,6 +39,9 @@ class Compose:
         """
 
         for t in self.transforms:
+            # print(data)
+            # print(data['input_shape'])
+            # print('tttttttt', self.transforms)
             data = t(data)
             if data is None:
                 return None

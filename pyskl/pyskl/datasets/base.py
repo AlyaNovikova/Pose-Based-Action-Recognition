@@ -80,7 +80,16 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
     def load_json_annotations(self):
         """Load json annotation file to get video information."""
         video_infos = mmcv.load(self.ann_file)
+        video_infos = video_infos[:10]
+
+        print('BASE SVIDEO INFOS', len(video_infos))
+
         num_videos = len(video_infos)
+
+        num_videos = min(1, num_videos)
+
+        print('NUMMMMMMM VIDEOS', num_videos)
+
         path_key = 'frame_dir' if 'frame_dir' in video_infos[0] else 'filename'
         for i in range(num_videos):
             path_value = video_infos[i][path_key]
@@ -269,6 +278,7 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
             onehot[results['label']] = 1.
             results['label'] = onehot
 
+        # print('results base dataset', results)
         results['test_mode'] = self.test_mode
         return self.pipeline(results)
 
@@ -309,6 +319,8 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
             onehot = torch.zeros(self.num_classes)
             onehot[results['label']] = 1.
             results['label'] = onehot
+
+        # print('results base dataset', results)
 
         results['test_mode'] = self.test_mode
         return self.pipeline(results)

@@ -68,6 +68,8 @@ class BasicBlock(nn.Module):
         Returns:
             torch.Tensor: The output of the module.
         """
+
+        print('111', x.shape)
         identity = x
 
         out = self.conv1(x)

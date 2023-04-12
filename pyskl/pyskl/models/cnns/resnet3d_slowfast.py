@@ -43,6 +43,9 @@ class DeConvModule(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, x):
+
+        print('!', x.shape)
+
         # x should be a 5-d tensor
         assert len(x.shape) == 5
         N, C, T, H, W = x.shape
