@@ -59,5 +59,5 @@ class VideoDataset(BaseDataset):
                 video_infos.append(dict(filename=filename, label=label))
 
         print("VIDEO INFOS VIDEO DATASET", len(video_infos))
-        video_infos = video_infos[:10]
+        # video_infos = video_infos[:10]
         return video_infos

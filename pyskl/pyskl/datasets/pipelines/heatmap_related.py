@@ -46,6 +46,7 @@ class GeneratePoseTarget:
                  use_score=True,
                  with_kp=True,
                  with_limb=False,
+                 input_format='Heatmap',
                  skeletons=((0, 1), (0, 2), (1, 3), (2, 4), (0, 5), (5, 7),
                             (7, 9), (0, 6), (6, 8), (8, 10), (5, 11), (11, 13),
                             (13, 15), (6, 12), (12, 14), (14, 16), (11, 12)),
@@ -61,6 +62,7 @@ class GeneratePoseTarget:
         self.with_kp = with_kp
         self.with_limb = with_limb
         self.double = double
+        self.input_format = input_format
 
         assert self.with_kp + self.with_limb == 1, ('One of "with_limb" and "with_kp" should be set as True.')
         self.left_kp = left_kp
@@ -244,7 +246,18 @@ class GeneratePoseTarget:
             kpscores = all_kpscores[:, i] if self.use_score else np.ones_like(all_kpscores[:, i])
 
             self.generate_heatmap(ret[i], kps, kpscores)
-        return ret
+
+        if self.input_format == 'Heatmap':
+            return ret
+
+        elif self.input_format == 'Skeleton':
+            # print('ret.shape, all_kps', ret.shape, all_kps.shape)
+
+            if all_kps.shape[0] == 1:
+                all_kps = np.concatenate([all_kps, all_kps], axis=0)
+
+            # print(all_kps[:2].shape)
+            return all_kps[:2].astype(np.float32)
 
     def __call__(self, results):
         heatmap = self.gen_an_aug(results)

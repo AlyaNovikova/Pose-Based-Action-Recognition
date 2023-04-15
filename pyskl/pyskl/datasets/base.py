@@ -80,7 +80,7 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
     def load_json_annotations(self):
         """Load json annotation file to get video information."""
         video_infos = mmcv.load(self.ann_file)
-        video_infos = video_infos[:10]
+        # video_infos = video_infos[:10]
 
         print('BASE SVIDEO INFOS', len(video_infos))
 
@@ -326,7 +326,7 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
 
         results['test_mode'] = self.test_mode
 
-        print('aaaaaaaaaaa test self.pipeline(results)', self.pipeline(results))
+        # print('aaaaaaaaaaa test self.pipeline(results)', self.pipeline(results))
 
         return self.pipeline(results)
 
