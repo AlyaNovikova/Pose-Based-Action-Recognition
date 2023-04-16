@@ -259,6 +259,9 @@ class GeneratePoseTarget:
             # print(all_kps[:2].shape)
             return all_kps[:2].astype(np.float32)
 
+        elif self.input_format == 'Grayscale':
+            return np.sum(ret, axis=1)
+
     def __call__(self, results):
         heatmap = self.gen_an_aug(results)
         key = 'heatmap_imgs' if 'imgs' in results else 'imgs'
