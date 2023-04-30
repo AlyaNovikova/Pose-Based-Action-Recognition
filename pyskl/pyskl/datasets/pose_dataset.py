@@ -97,6 +97,9 @@ class PoseDataset(BaseDataset):
             split = set(split[self.split])
             data = [x for x in data if x[identifier] in split]
 
+            new_data_len = len(data) // 4
+            data = data[:new_data_len]
+
         for item in data:
             # Sometimes we may need to load anno from the file
             if 'filename' in item:

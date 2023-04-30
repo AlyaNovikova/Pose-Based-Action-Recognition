@@ -8,6 +8,7 @@ from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 
 from .. import builder
+import wandb
 
 
 def rgetattr(obj, attr, *args):
@@ -186,6 +187,8 @@ class BaseRecognizer(nn.Module, metaclass=ABCMeta):
         losses = self(**data_batch, return_loss=True)
 
         loss, log_vars = self._parse_losses(losses)
+
+        wandb.log({'train/loss': loss.item()}, commit=True)
 
         outputs = dict(
             loss=loss,
