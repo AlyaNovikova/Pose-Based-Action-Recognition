@@ -59,23 +59,23 @@ def confusion_matrix(y_pred, y_real, normalize=None):
     if not isinstance(y_pred, np.ndarray):
         raise TypeError(
             f'y_pred must be list or np.ndarray, but got {type(y_pred)}')
-    if not y_pred.dtype == int:
+    if not y_pred.dtype == np.int64:
         raise TypeError(
-            f'y_pred dtype must be int, but got {y_pred.dtype}')
+            f'y_pred dtype must be np.int64, but got {y_pred.dtype}')
 
     if isinstance(y_real, list):
         y_real = np.array(y_real)
     if not isinstance(y_real, np.ndarray):
         raise TypeError(
             f'y_real must be list or np.ndarray, but got {type(y_real)}')
-    if not y_real.dtype == int:
+    if not y_real.dtype == np.int64:
         raise TypeError(
-            f'y_real dtype must be int, but got {y_real.dtype}')
+            f'y_real dtype must be np.int64, but got {y_real.dtype}')
 
     label_set = np.unique(np.concatenate((y_pred, y_real)))
     num_labels = len(label_set)
     max_label = label_set[-1]
-    label_map = np.zeros(max_label + 1, dtype=int)
+    label_map = np.zeros(max_label + 1, dtype=np.int64)
     for i, label in enumerate(label_set):
         label_map[label] = i
 

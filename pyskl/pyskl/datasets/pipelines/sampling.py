@@ -65,7 +65,7 @@ class UniformSampleFrames:
                 basic = np.arange(clip_len)
                 inds = np.random.choice(
                     clip_len + 1, num_frames - clip_len, replace=False)
-                offset = np.zeros(clip_len + 1, dtype=int)
+                offset = np.zeros(clip_len + 1, dtype=np.int64)
                 offset[inds] = 1
                 offset = np.cumsum(offset)
                 inds = basic + offset[:-1]
@@ -109,7 +109,7 @@ class UniformSampleFrames:
             elif clip_len <= num_frames < clip_len * 2:
                 basic = np.arange(clip_len)
                 inds = np.random.choice(clip_len + 1, num_frames - clip_len, replace=False)
-                offset = np.zeros(clip_len + 1, dtype=int)
+                offset = np.zeros(clip_len + 1, dtype=np.int64)
                 offset[inds] = 1
                 offset = np.cumsum(offset)
                 inds = basic + offset[:-1]
@@ -205,7 +205,7 @@ class UniformSampleDecode:
             elif clip_len <= num_frames < 2 * clip_len:
                 basic = np.arange(clip_len)
                 inds = np.random.choice(clip_len + 1, num_frames - clip_len, replace=False)
-                offset = np.zeros(clip_len + 1, dtype=int)
+                offset = np.zeros(clip_len + 1, dtype=np.int64)
                 offset[inds] = 1
                 inds = basic + np.cumsum(offset)[:-1] + off
                 clip = full_kp[:, inds].copy()

@@ -170,7 +170,7 @@ class FormatShape(object):
 
     def __init__(self, input_format):
         self.input_format = input_format
-        if self.input_format not in ['NCTHW', 'NCHW', 'NCTHW_Heatmap', 'Skeleton', 'Grayscale']:
+        if self.input_format not in ['NCTHW', 'NCHW', 'NCTHW_Heatmap']:
             raise ValueError(
                 f'The input format {self.input_format} is invalid.')
 
@@ -233,52 +233,9 @@ class FormatShape(object):
 
                 imgs = imgs.reshape((-1, num_clips, clip_len) + imgs.shape[1:])
                 # N_crops x N_clips x L x C x H x W
-                # imgs = np.transpose(imgs, (0, 1, 3, 2, 4, 5))
-                # imgs2 = np.transpose(imgs, (0, 1, 3, 2, 4, 5))
-
-                # imgs = np.transpose(imgs, (0, 1, 2, 3, 4, 5))
-
                 imgs = np.transpose(imgs, (0, 1, 3, 2, 4, 5))
-
                 # N_crops x N_clips x C x L x H x W
                 imgs = imgs.reshape((-1, ) + imgs.shape[2:])
-                # M' x C x L x H x W
-                # M' = N_crops x N_clips
-                results['imgs'] = imgs
-                results['input_shape'] = imgs.shape
-
-        elif self.input_format == 'Skeleton':
-            if 'imgs' in results:
-                num_clips = results['num_clips']
-                clip_len = results['clip_len']
-                imgs = results['imgs']
-
-                imgs = imgs.reshape((-1, num_clips, clip_len) + imgs.shape[1:])
-
-                imgs = np.transpose(imgs, (0, 1, 3, 2, 4, 5))
-
-                # N_crops x N_clips x C x L x H x W
-                imgs = imgs.reshape((-1,) + imgs.shape[2:])
-                # M' x C x L x H x W
-                # M' = N_crops x N_clips
-                results['imgs'] = imgs
-                results['input_shape'] = imgs.shape
-
-        elif self.input_format == 'Grayscale':
-            if 'imgs' in results:
-                num_clips = results['num_clips']
-                clip_len = results['clip_len']
-                imgs = results['imgs']
-
-                imgs = imgs.reshape((-1, num_clips, clip_len) + imgs.shape[1:])
-                # N_crops x N_clips x L x C x H x W
-
-
-                imgs = np.transpose(imgs, (0, 1, 2, 3, 4))
-
-                # N_crops x N_clips x C x L x H x W
-                imgs = imgs.reshape((-1,) + imgs.shape[1:])
-
                 # M' x C x L x H x W
                 # M' = N_crops x N_clips
                 results['imgs'] = imgs

@@ -510,7 +510,7 @@ class DecompressPose:
             uni = np.unique(inds)
             map_ = {x: i for i, x in enumerate(uni)}
             inds = [map_[x] for x in inds]
-            return np.array(inds, dtype=int)
+            return np.array(inds, dtype=np.int16)
 
         if self.squeeze:
             frame_inds = mapinds(frame_inds)
@@ -524,7 +524,7 @@ class DecompressPose:
         new_kp = np.zeros([num_person, total_frames, num_joints, 2], dtype=np.float16)
         new_kpscore = np.zeros([num_person, total_frames, num_joints], dtype=np.float16)
         # 32768 is enough
-        nperson_per_frame = np.zeros([total_frames], dtype=int)
+        nperson_per_frame = np.zeros([total_frames], dtype=np.int16)
 
         for frame_ind, kp in zip(frame_inds, keypoint):
             person_ind = nperson_per_frame[frame_ind]

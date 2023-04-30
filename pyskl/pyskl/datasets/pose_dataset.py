@@ -93,14 +93,9 @@ class PoseDataset(BaseDataset):
 
         if self.split:
             split, data = data['split'], data['annotations']
-
             identifier = 'filename' if 'filename' in data[0] else 'frame_dir'
             split = set(split[self.split])
             data = [x for x in data if x[identifier] in split]
-
-            # data = data[:100]
-
-            print('LEN DATA', len(data))
 
         for item in data:
             # Sometimes we may need to load anno from the file
@@ -108,5 +103,4 @@ class PoseDataset(BaseDataset):
                 item['filename'] = osp.join(self.data_prefix, item['filename'])
             if 'frame_dir' in item:
                 item['frame_dir'] = osp.join(self.data_prefix, item['frame_dir'])
-
         return data
