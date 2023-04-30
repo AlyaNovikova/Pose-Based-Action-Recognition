@@ -7,6 +7,8 @@ import torch.nn.functional as F
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 
+import wandb
+
 from .. import builder
 
 
@@ -186,6 +188,8 @@ class BaseRecognizer(nn.Module, metaclass=ABCMeta):
         losses = self(**data_batch, return_loss=True)
 
         loss, log_vars = self._parse_losses(losses)
+
+        wandb.log({'train/loss': loss.item()}, commit=True)
 
         outputs = dict(
             loss=loss,

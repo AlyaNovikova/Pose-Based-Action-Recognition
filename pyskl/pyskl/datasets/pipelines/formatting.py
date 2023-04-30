@@ -236,7 +236,10 @@ class FormatShape(object):
                 # imgs = np.transpose(imgs, (0, 1, 3, 2, 4, 5))
                 # imgs2 = np.transpose(imgs, (0, 1, 3, 2, 4, 5))
 
-                imgs = np.transpose(imgs, (0, 1, 2, 3, 4, 5))
+                # imgs = np.transpose(imgs, (0, 1, 2, 3, 4, 5))
+
+                imgs = np.transpose(imgs, (0, 1, 3, 2, 4, 5))
+
                 # N_crops x N_clips x C x L x H x W
                 imgs = imgs.reshape((-1, ) + imgs.shape[2:])
                 # M' x C x L x H x W
@@ -250,21 +253,12 @@ class FormatShape(object):
                 clip_len = results['clip_len']
                 imgs = results['imgs']
 
-                # print('BEFOOORE', imgs.shape)
-                imgs = np.transpose(imgs, (1, 0, 2, 3))
-                # print('AFTEEEErrrr', imgs.shape)
-
                 imgs = imgs.reshape((-1, num_clips, clip_len) + imgs.shape[1:])
-                # print('Afteeeerrr 22222222', imgs.shape)
 
-                # N_crops x N_clips x L x C x H x W
-                # imgs = np.transpose(imgs, (0, 1, 3, 2, 4, 5))
-                # imgs2 = np.transpose(imgs, (0, 1, 3, 2, 4, 5))
+                imgs = np.transpose(imgs, (0, 1, 3, 2, 4, 5))
 
-                imgs = np.transpose(imgs, (0, 1, 2, 3, 4, 5))
-                # imgs = np.transpose(imgs, (0, 1, 2, 3, 4, 5))
                 # N_crops x N_clips x C x L x H x W
-                imgs = imgs.reshape((-1, ) + imgs.shape[2:])
+                imgs = imgs.reshape((-1,) + imgs.shape[2:])
                 # M' x C x L x H x W
                 # M' = N_crops x N_clips
                 results['imgs'] = imgs

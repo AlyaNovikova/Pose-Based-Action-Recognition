@@ -12,7 +12,7 @@ from mmcv.runner import DistSamplerSeedHook, EpochBasedRunner, OptimizerHook, bu
 from ..core import DistEvalHook
 from ..datasets import build_dataloader, build_dataset
 from ..utils import cache_checkpoint, get_root_logger
-
+import wandb
 
 def init_random_seed(seed=None, device='cuda'):
     """Initialize random seed.
@@ -141,7 +141,8 @@ def train_model(model,
         cfg.load_from = cache_checkpoint(cfg.load_from)
         runner.load_checkpoint(cfg.load_from)
 
-    runner.run(data_loaders, cfg.workflow, cfg.total_epochs)
+    with wandb.init(project='pySKL', config=cfg._cfg_dict):
+        runner.run(data_loaders, cfg.workflow, cfg.total_epochs)
 
     dist.barrier()
     time.sleep(2)

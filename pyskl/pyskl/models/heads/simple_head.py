@@ -86,8 +86,7 @@ class SimpleHead(BaseHead):
                 x = x.reshape(N, M, C)
                 x = x.mean(dim=1)
 
-        # print('simple head x shape', x.shape)
-        assert x.shape[1] == self.in_c
+        assert x.shape[1] == self.in_c, f'simple head {x.shape=}'
         if self.dropout is not None:
             x = self.dropout(x)
 

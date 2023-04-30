@@ -2,8 +2,8 @@ model = dict(
     type='Recognizer3D',
     backbone=dict(
         type='ResNet3dSlowOnly',
-        in_channels=8,
-        base_channels=17,
+        in_channels=17,
+        base_channels=32,
         num_stages=3,
         out_indices=(2, ),
         stage_blocks=(4, 6, 3),
@@ -14,7 +14,7 @@ model = dict(
         temporal_strides=(1, 1, 2)),
     cls_head=dict(
         type='I3DHead',
-        in_channels=272,
+        in_channels=512,
         num_classes=60,
         dropout=0.5),
     test_cfg=dict(average_clips='prob'))
@@ -24,7 +24,7 @@ ann_file = '../../../../data/alya/ntu60_hrnet.pkl'
 left_kp = [1, 3, 5, 7, 9, 11, 13, 15]
 right_kp = [2, 4, 6, 8, 10, 12, 14, 16]
 train_pipeline = [
-    dict(type='UniformSampleFrames', clip_len=8),
+    dict(type='UniformSampleFrames', clip_len=48),
     dict(type='PoseDecode'),
     dict(type='PoseCompact', hw_ratio=1., allow_imgpad=True),
     dict(type='Resize', scale=(-1, 64)),
