@@ -19,7 +19,7 @@ from mmcv.runner import get_dist_info, init_dist, load_checkpoint
 from pyskl.datasets import build_dataloader, build_dataset
 from pyskl.models import build_model
 from pyskl.utils import cache_checkpoint, mc_off, mc_on, test_port
-
+import wandb
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -104,6 +104,9 @@ def inference_pytorch(args, cfg, data_loader):
         broadcast_buffers=False)
     outputs = multi_gpu_test(model, data_loader, args.tmpdir)
 
+    print('HIIIIIIIIIIIII')
+    print(outputs)
+
     return outputs
 
 
@@ -146,6 +149,8 @@ def main():
         shuffle=False)
     dataloader_setting = dict(dataloader_setting, **cfg.data.get('test_dataloader', {}))
     data_loader = build_dataloader(dataset, **dataloader_setting)
+
+    wandb.init(project='pySKL', config=cfg._cfg_dict)
 
     default_mc_cfg = ('localhost', 22077)
     memcached = cfg.get('memcached', False)

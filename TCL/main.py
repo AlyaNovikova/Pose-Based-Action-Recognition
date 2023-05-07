@@ -13,11 +13,13 @@ from torch.nn.utils import clip_grad_norm_
 
 from ops.dataset import TSNDataSet
 from ops.models import TSN
+from ops.pose_dataset import PoseDataset
 from ops.transforms import *
 from opts import parser
 from ops import dataset_config
 from ops.utils import AverageMeter, accuracy
 from ops.temporal_shift import make_temporal_pool
+import wandb
 
 best_prec1 = 0
 
@@ -136,21 +138,53 @@ def main():
     elif args.modality in ['Flow', 'RGBDiff']:
         data_length = 5
 
+    wandb.init(project='TCL', config=args)
+
+    # labeled_trainloader = torch.utils.data.DataLoader(
+    #     TSNDataSet(args.root_path, args.labeled_train_list, unlabeled=False,
+    #                num_segments=args.num_segments,
+    #                new_length=data_length,
+    #                modality=args.modality,
+    #                image_tmpl=prefix,
+    #                second_segments = args.second_segments,
+    #                transform=torchvision.transforms.Compose([
+    #                    train_augmentation,
+    #                    Stack(
+    #                        roll=(args.arch in ['BNInception', 'InceptionV3'])),
+    #                    ToTorchFormatTensor(
+    #                        div=(args.arch not in ['BNInception', 'InceptionV3'])),
+    #                    normalize,
+    #                ]), dense_sample=args.dense_sample),
+    #     batch_size=args.batch_size, shuffle=True,
+    #     num_workers=args.workers, pin_memory=True,
+    #     drop_last=False)  # prevent something not % n_GPU
+
+    dataset_type = 'PoseDataset'
+    ann_file = '../../../../data/alya/ntu60_hrnet.pkl'
+    left_kp = [1, 3, 5, 7, 9, 11, 13, 15]
+    right_kp = [2, 4, 6, 8, 10, 12, 14, 16]
+    work_dir = './work_dirs/posec3d/slowonly_r50_ntu60_xsub/joint'
+
+    train_pipeline = [
+        dict(type='UniformSampleFrames', clip_len=8),
+        dict(type='PoseDecode'),
+        dict(type='PoseCompact', hw_ratio=1., allow_imgpad=True),
+        dict(type='Resize', scale=(-1, 64)),
+        dict(type='RandomResizedCrop', area_range=(0.56, 1.0)),
+        dict(type='Resize', scale=(56, 56), keep_ratio=False),
+        dict(type='Flip', flip_ratio=0.5, left_kp=left_kp, right_kp=right_kp),
+        dict(type='GeneratePoseTarget', with_kp=True, with_limb=False),
+        dict(type='FormatShape', input_format='NCTHW_Heatmap'),
+        dict(type='Collect', keys=['imgs', 'label'], meta_keys=[]),
+        dict(type='ToTensor', keys=['imgs', 'label'])
+    ]
+
+    labeled_dataset = PoseDataset(ann_file=ann_file,
+                 pipeline=train_pipeline,
+                 split='xsub_train')
+
     labeled_trainloader = torch.utils.data.DataLoader(
-        TSNDataSet(args.root_path, args.labeled_train_list, unlabeled=False,
-                   num_segments=args.num_segments,
-                   new_length=data_length,
-                   modality=args.modality,
-                   image_tmpl=prefix,
-                   second_segments = args.second_segments,
-                   transform=torchvision.transforms.Compose([
-                       train_augmentation,
-                       Stack(
-                           roll=(args.arch in ['BNInception', 'InceptionV3'])),
-                       ToTorchFormatTensor(
-                           div=(args.arch not in ['BNInception', 'InceptionV3'])),
-                       normalize,
-                   ]), dense_sample=args.dense_sample),
+        labeled_dataset,
         batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True,
         drop_last=False)  # prevent something not % n_GPU
@@ -319,15 +353,17 @@ def train(labeled_trainloader, unlabeled_trainloader, model, criterion, optimize
                                                     reduction='none') * mask).mean()
         else:
             labeled_data = data
-        input, target = labeled_data
+        # input, target = labeled_data
+        input = labeled_data['imgs']
+        target = labeled_data['label']
         target = target.cuda()
         input = input.cuda()
         input = torch.autograd.Variable(input)
         target_var = torch.autograd.Variable(target)
         output = model(input)
-        loss = criterion(output, target_var)
+        loss = criterion(output, target_var.squeeze(1))
 
-        total_loss = loss + args.gamma*contrastive_loss  + group_contrastive_loss + args.gamma_finetune*pl_loss
+        total_loss = loss + args.gamma*contrastive_loss + group_contrastive_loss + args.gamma_finetune*pl_loss
         # measure accuracy and record loss
         prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
         if epoch >= args.sup_thresh:

@@ -88,6 +88,7 @@ class TSN(nn.Module):
 
         if 'resnet' in base_model:
             self.base_model = resnet_dict[base_model](True if self.pretrain == 'imagenet' else False)
+            self.base_model.conv1 = torch.nn.Conv2d(17, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
             if self.is_shift:
                 print('Adding temporal shift...')
                 from ops.temporal_shift import make_temporal_shift
@@ -204,6 +205,7 @@ class TSN(nn.Module):
     def forward(self, input, unlabeled=False, no_reshape=False):
         if not no_reshape:
             sample_len = (3 if self.modality == "RGB" else 2) * self.new_length
+            sample_len = 17
 
             base_out = self.base_model(input.view((-1, sample_len) + input.size()[-2:]),unlabeled)
         else:

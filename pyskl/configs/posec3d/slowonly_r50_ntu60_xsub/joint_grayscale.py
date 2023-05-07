@@ -2,7 +2,7 @@ model = dict(
     type='Recognizer3D',
     backbone=dict(
         type='ResNet3dSlowOnly',
-        in_channels=17,
+        in_channels=1,
         base_channels=32,
         num_stages=3,
         out_indices=(2, ),
@@ -31,8 +31,8 @@ train_pipeline = [
     dict(type='RandomResizedCrop', area_range=(0.56, 1.0)),
     dict(type='Resize', scale=(56, 56), keep_ratio=False),
     dict(type='Flip', flip_ratio=0.5, left_kp=left_kp, right_kp=right_kp),
-    dict(type='GeneratePoseTarget', with_kp=True, with_limb=False),
-    dict(type='FormatShape', input_format='NCTHW_Heatmap'),
+    dict(type='GeneratePoseTarget', with_kp=True, with_limb=False, input_format='Grayscale'),
+    dict(type='FormatShape', input_format='Grayscale'),
     dict(type='Collect', keys=['imgs', 'label'], meta_keys=[]),
     dict(type='ToTensor', keys=['imgs', 'label'])
 ]
@@ -41,8 +41,8 @@ val_pipeline = [
     dict(type='PoseDecode'),
     dict(type='PoseCompact', hw_ratio=1., allow_imgpad=True),
     dict(type='Resize', scale=(64, 64), keep_ratio=False),
-    dict(type='GeneratePoseTarget', with_kp=True, with_limb=False),
-    dict(type='FormatShape', input_format='NCTHW_Heatmap'),
+    dict(type='GeneratePoseTarget', with_kp=True, with_limb=False, input_format='Grayscale'),
+    dict(type='FormatShape', input_format='Grayscale'),
     dict(type='Collect', keys=['imgs', 'label'], meta_keys=[]),
     dict(type='ToTensor', keys=['imgs'])
 ]
@@ -51,8 +51,8 @@ test_pipeline = [
     dict(type='PoseDecode'),
     dict(type='PoseCompact', hw_ratio=1., allow_imgpad=True),
     dict(type='Resize', scale=(64, 64), keep_ratio=False),
-    dict(type='GeneratePoseTarget', with_kp=True, with_limb=False, double=True, left_kp=left_kp, right_kp=right_kp),
-    dict(type='FormatShape', input_format='NCTHW_Heatmap'),
+    dict(type='GeneratePoseTarget', with_kp=True, with_limb=False, input_format='Grayscale', double=True, left_kp=left_kp, right_kp=right_kp),
+    dict(type='FormatShape', input_format='Grayscale'),
     dict(type='Collect', keys=['imgs', 'label'], meta_keys=[]),
     dict(type='ToTensor', keys=['imgs'])
 ]
@@ -76,4 +76,4 @@ checkpoint_config = dict(interval=1)
 evaluation = dict(interval=1, metrics=['top_k_accuracy', 'mean_class_accuracy'], topk=(1, 5))
 log_config = dict(interval=20, hooks=[dict(type='TextLoggerHook')])
 log_level = 'INFO'
-work_dir = './work_dirs/posec3d/slowonly_r50_ntu60_xsub/joint'
+work_dir = './work_dirs/posec3d/slowonly_r50_ntu60_xsub/joint_grayscale'
