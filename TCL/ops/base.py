@@ -53,6 +53,7 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
                  start_index=1,
                  modality='RGB',
                  memcached=False,
+                 unlabeled=False,
                  mc_cfg=('localhost', 22077)):
         super().__init__()
 
@@ -63,6 +64,7 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
         self.num_classes = num_classes
         self.start_index = start_index
         self.modality = modality
+        self.unlabeled = unlabeled
         # Note: Currently, memcached only works for PoseDataset
         self.memcached = memcached
         self.mc_cfg = mc_cfg
@@ -324,4 +326,8 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
 
     def __getitem__(self, idx):
         """Get the sample for either training or testing given index."""
-        return self.prepare_test_frames(idx) if self.test_mode else self.prepare_train_frames(idx)
+        if not self.unlabeled:
+            return self.prepare_test_frames(idx) if self.test_mode else self.prepare_train_frames(idx)
+
+        kek = self.prepare_train_frames(idx)
+        return kek, kek
