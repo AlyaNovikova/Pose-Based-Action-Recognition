@@ -230,23 +230,13 @@ class FormatShape(object):
                 num_clips = results['num_clips']
                 assert num_clips == 1
                 clip_len = results['clip_len']
-                imgs = results['imgs']
+
                 # 8, 17, 56, 56
+                imgs = results['imgs']
 
                 # TCL version
                 # 8 * 17, 56, 56
                 imgs = imgs.reshape((-1,) + imgs.shape[2:])
-
-                # imgs = imgs.reshape((1, num_clips, clip_len) + imgs.shape[1:])
-
-                # forward: bs, 3 * 8, 224, 224
-
-                # N_crops x N_clips x L x C x H x W
-                # imgs = np.transpose(imgs, (0, 1, 3, 2, 4, 5))
-                # N_crops x N_clips x C x L x H x W
-                # imgs = imgs.reshape((-1,) + imgs.shape[2:])
-                # M' x C x L x H x W
-                # M' = N_crops x N_clips
                 results['imgs'] = imgs
                 results['input_shape'] = imgs.shape
 

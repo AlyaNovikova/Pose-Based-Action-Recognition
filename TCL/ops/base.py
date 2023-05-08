@@ -53,7 +53,8 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
                  start_index=1,
                  modality='RGB',
                  memcached=False,
-                 unlabeled=False,
+                 noise=False,
+                 noise_pipeline=None,
                  mc_cfg=('localhost', 22077)):
         super().__init__()
 
@@ -64,13 +65,15 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
         self.num_classes = num_classes
         self.start_index = start_index
         self.modality = modality
-        self.unlabeled = unlabeled
+        self.noise = noise
         # Note: Currently, memcached only works for PoseDataset
         self.memcached = memcached
         self.mc_cfg = mc_cfg
         self.cli = None
 
         self.pipeline = Compose(pipeline)
+        if noise_pipeline is not None:
+            self.noise_pipeline = Compose(noise_pipeline)
         self.video_infos = self.load_annotations()
 
     @abstractmethod
@@ -238,7 +241,7 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
         """Dump data to json/yaml/pickle strings or files."""
         return mmcv.dump(results, out)
 
-    def prepare_train_frames(self, idx):
+    def prepare_train_frames(self, idx, is_noise_pipeline=False):
         """Prepare the frames for training given the index."""
         results = copy.deepcopy(self.video_infos[idx])
         if self.memcached and 'key' in results:
@@ -277,7 +280,11 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
             results['label'] = onehot
 
         results['test_mode'] = self.test_mode
-        return self.pipeline(results)
+
+        if not is_noise_pipeline:
+            return self.pipeline(results)
+
+        return self.noise_pipeline(results)
 
     def prepare_test_frames(self, idx):
         """Prepare the frames for testing given the index."""
@@ -326,8 +333,9 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
 
     def __getitem__(self, idx):
         """Get the sample for either training or testing given index."""
-        if not self.unlabeled:
+        if not self.noise:
             return self.prepare_test_frames(idx) if self.test_mode else self.prepare_train_frames(idx)
 
-        kek = self.prepare_train_frames(idx)
-        return kek, kek
+        frames = self.prepare_train_frames(idx)
+        frames_noise = self.prepare_train_frames(idx, is_noise_pipeline=True)
+        return frames, frames_noise

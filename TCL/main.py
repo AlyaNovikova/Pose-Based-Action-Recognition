@@ -182,6 +182,20 @@ def main():
         dict(type='ToTensor', keys=['imgs', 'label'])
     ]
 
+    noise_train_pipeline = [
+        dict(type='UniformSampleFrames', clip_len=8),
+        dict(type='PoseDecode'),
+        dict(type='PoseCompact', hw_ratio=1., allow_imgpad=True),
+        dict(type='Resize', scale=(-1, 64)),
+        dict(type='RandomResizedCrop', area_range=(0.56, 1.0)),
+        dict(type='Resize', scale=(56, 56), keep_ratio=False),
+        dict(type='Flip', flip_ratio=0.5, left_kp=left_kp, right_kp=right_kp),
+        dict(type='GeneratePoseTarget', with_kp=True, with_limb=False, noise=True),
+        dict(type='FormatShape', input_format='NCTHW_Heatmap'),
+        dict(type='Collect', keys=['imgs', 'label'], meta_keys=[]),
+        dict(type='ToTensor', keys=['imgs', 'label'])
+    ]
+
     val_pipeline = [
         dict(type='UniformSampleFrames', clip_len=8, num_clips=1),
         dict(type='PoseDecode'),
@@ -205,7 +219,8 @@ def main():
 
     unlabeled_dataset = PoseDataset(ann_file=ann_file,
                                     pipeline=train_pipeline,
-                                    unlabeled=True,
+                                    noise=True,
+                                    noise_pipeline=noise_train_pipeline,
                                     split='xsub_train')
 
     unlabeled_trainloader = torch.utils.data.DataLoader(
@@ -429,6 +444,13 @@ def train(labeled_trainloader, unlabeled_trainloader, model, criterion, optimize
         batch_time.update(time.time() - end)
         end = time.time()
 
+        wandb.log({f'train/total_loss': total_losses.avg}, commit=True)
+        wandb.log({f'train/supervised_loss': supervised_losses.avg}, commit=True)
+        wandb.log({f'train/contrastive_Loss': contrastive_losses.avg}, commit=True)
+
+        wandb.log({f'train/top1_acc': top1.avg}, commit=True)
+        wandb.log({f'train/top5_acc': top5.avg}, commit=True)
+
         if i % args.print_freq == 0:
             output = ('Epoch: [{0}][{1}], lr: {lr:.5f}\t'
                       'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
@@ -460,7 +482,9 @@ def validate(val_loader, model, criterion, epoch, log=None):
 
     end = time.time()
     with torch.no_grad():
-        for i, (input, target) in enumerate(val_loader):
+        for i, data in enumerate(val_loader):
+            input, target = data['imgs'], data['label']
+
             target = target.cuda()
 
             # compute output
@@ -477,6 +501,10 @@ def validate(val_loader, model, criterion, epoch, log=None):
             # measure elapsed time
             batch_time.update(time.time() - end)
             end = time.time()
+
+            wandb.log({f'val/loss': losses.avg}, commit=True)
+            wandb.log({f'val/top1_acc': top1.avg}, commit=True)
+            wandb.log({f'val/top5_acc': top5.avg}, commit=True)
 
             if i % args.print_freq == 0:
                 output = ('Test: [{0}/{1}]\t'

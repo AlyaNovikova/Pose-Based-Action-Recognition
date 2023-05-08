@@ -47,6 +47,7 @@ class GeneratePoseTarget:
                  with_kp=True,
                  with_limb=False,
                  input_format='Heatmap',
+                 noise=False,
                  skeletons=((0, 1), (0, 2), (1, 3), (2, 4), (0, 5), (5, 7),
                             (7, 9), (0, 6), (6, 8), (8, 10), (5, 11), (11, 13),
                             (13, 15), (6, 12), (12, 14), (14, 16), (11, 12)),
@@ -71,6 +72,7 @@ class GeneratePoseTarget:
         self.left_limb = left_limb
         self.right_limb = right_limb
         self.scaling = scaling
+        self.noise = noise
 
     def generate_a_heatmap(self, arr, centers, max_values):
         """Generate pseudo heatmap for one keypoint in one frame.
@@ -104,7 +106,7 @@ class GeneratePoseTarget:
                 continue
             y = y[:, None]
 
-            patch = np.exp(-((x - mu_x)**2 + (y - mu_y)**2) / 2 / sigma**2)
+            patch = np.exp(-((x - mu_x) ** 2 + (y - mu_y) ** 2) / 2 / sigma ** 2)
             patch = patch * max_value
             arr[st_y:ed_y, st_x:ed_x] = np.maximum(arr[st_y:ed_y, st_x:ed_x], patch)
 
@@ -149,13 +151,13 @@ class GeneratePoseTarget:
             y_0 = np.zeros_like(y)
 
             # distance to start keypoints
-            d2_start = ((x - start[0])**2 + (y - start[1])**2)
+            d2_start = ((x - start[0]) ** 2 + (y - start[1]) ** 2)
 
             # distance to end keypoints
-            d2_end = ((x - end[0])**2 + (y - end[1])**2)
+            d2_end = ((x - end[0]) ** 2 + (y - end[1]) ** 2)
 
             # the distance between start and end keypoints.
-            d2_ab = ((start[0] - end[0])**2 + (start[1] - end[1])**2)
+            d2_ab = ((start[0] - end[0]) ** 2 + (start[1] - end[1]) ** 2)
 
             if d2_ab < 1:
                 self.generate_a_heatmap(arr, start[None], start_value[None])
@@ -170,10 +172,10 @@ class GeneratePoseTarget:
             position = np.stack([x + y_0, y + x_0], axis=-1)
             projection = start + np.stack([coeff, coeff], axis=-1) * (end - start)
             d2_line = position - projection
-            d2_line = d2_line[:, :, 0]**2 + d2_line[:, :, 1]**2
+            d2_line = d2_line[:, :, 0] ** 2 + d2_line[:, :, 1] ** 2
             d2_seg = a_dominate * d2_start + b_dominate * d2_end + seg_dominate * d2_line
 
-            patch = np.exp(-d2_seg / 2. / sigma**2)
+            patch = np.exp(-d2_seg / 2. / sigma ** 2)
             patch = patch * value_coeff
 
             arr[min_y:max_y, min_x:max_x] = np.maximum(arr[min_y:max_y, min_x:max_x], patch)
@@ -206,6 +208,29 @@ class GeneratePoseTarget:
                 end_values = max_values[:, end_idx]
                 self.generate_a_limb_heatmap(arr[i], starts, ends, start_values, end_values)
 
+    def add_random_noise(self, kps, h, w):
+        mean = 0
+        disp = 0.1 * (h + w) / 2
+
+        kps_flat = kps.reshape(-1, 2)
+
+        new_kps_flat = []
+        for point in kps_flat:
+            x, y = point
+            delta_x, delta_y = np.random.normal(mean, disp, size=2)
+
+            # new_x = max(0, min(x + delta_x, h))
+            # new_y = max(0, min(y + delta_y, w))
+
+            new_x = x + delta_x
+            new_y = y + delta_y
+
+            new_kps_flat.append([new_x, new_y])
+
+        new_kps_flat = np.array(new_kps_flat)
+        new_kps = new_kps_flat.reshape(kps.shape)
+        return new_kps
+
     def gen_an_aug(self, results):
         """Generate pseudo heatmaps for all frames.
 
@@ -230,6 +255,9 @@ class GeneratePoseTarget:
         img_h = int(img_h * self.scaling + 0.5)
         img_w = int(img_w * self.scaling + 0.5)
         all_kps[..., :2] *= self.scaling
+
+        if self.noise:
+            all_kps = self.add_random_noise(all_kps, img_h, img_w)
 
         num_frame = kp_shape[1]
         num_c = 0
@@ -335,7 +363,7 @@ class Heatmap2Potion:
             color = idx2color(i)
             heatmap = heatmaps[:, i]
             heatmap = heatmap[..., None]
-            heatmap = np.matmul(heatmap, color[None, ])
+            heatmap = np.matmul(heatmap, color[None,])
             heatmaps_wcolor.append(heatmap)
 
         # The shape of each element is N x H x W x K x C
@@ -357,6 +385,6 @@ class Heatmap2Potion:
                                      axis=-1)
 
         # Reshape the heatmap to 4D
-        heatmap = heatmap.reshape(heatmap.shape[:3] + (-1, ))
+        heatmap = heatmap.reshape(heatmap.shape[:3] + (-1,))
         results['imgs'] = heatmap
         return results
