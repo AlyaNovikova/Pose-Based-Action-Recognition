@@ -1,9 +1,7 @@
 import os
 import time
 import shutil
-import random
 import datetime
-import numpy as np
 import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torch.optim
@@ -13,16 +11,11 @@ from collections import defaultdict
 from mmcv.runner import build_optimizer
 from torch.nn.utils import clip_grad_norm_
 
-from lib.model.model_action import ActionNet
-from lib.utils.learning import load_backbone
-from lib.utils.tools import get_config
-from models import ResNet3dSlowOnly, Recognizer3D
-from ops.dataset import TSNDataSet
-from ops.models import TSN
-from ops.pose_dataset import PoseDataset
+from datasets import build_dataset
+# from datasets.builder import build_dataset
+from models import Recognizer3D
 from ops.transforms import *
 from opts import parser
-from ops import dataset_config
 from ops.utils import AverageMeter, accuracy
 from ops.temporal_shift import make_temporal_pool
 import wandb
@@ -260,9 +253,15 @@ def main():
         dict(type='ToTensor', keys=['imgs'])
     ]
 
-    labeled_dataset = PoseDataset(ann_file=ann_file,
-                                  pipeline=train_pipeline,
-                                  split='xsub_train')
+    # labeled_dataset = PoseDataset(ann_file=ann_file,
+    #                               pipeline=train_pipeline,
+    #                               split='xsub_train')
+
+    train_c = dict(
+        type='RepeatDataset',
+        times=10,
+        dataset=dict(type=dataset_type, ann_file=ann_file, split='xsub_train', pipeline=train_pipeline))
+    labeled_dataset = build_dataset(train_c)
 
     labeled_trainloader = torch.utils.data.DataLoader(
         labeled_dataset,
@@ -270,11 +269,21 @@ def main():
         num_workers=args.workers, pin_memory=True,
         drop_last=False)  # prevent something not % n_GPU
 
-    unlabeled_dataset = PoseDataset(ann_file=ann_file,
-                                    pipeline=train_pipeline,
-                                    noise=True,
-                                    noise_pipeline=noise_train_pipeline,
-                                    split='xsub_train')
+    train_c_unl = dict(
+        type='RepeatDataset',
+        times=10,
+        dataset=dict(type=dataset_type,
+                     ann_file=ann_file,
+                     split='xsub_train',
+                     pipeline=train_pipeline,
+                     noise=True,
+                     noise_pipeline=noise_train_pipeline))
+    unlabeled_dataset = build_dataset(train_c_unl)
+    # unlabeled_dataset = PoseDataset(ann_file=ann_file,
+    #                                 pipeline=train_pipeline,
+    #                                 noise=True,
+    #                                 noise_pipeline=noise_train_pipeline,
+    #                                 split='xsub_train')
 
     unlabeled_trainloader = torch.utils.data.DataLoader(
         unlabeled_dataset,
@@ -282,9 +291,13 @@ def main():
         num_workers=args.workers, pin_memory=True,
         drop_last=False)  # prevent something not % n_GPU
 
-    val_dataset = PoseDataset(ann_file=ann_file,
-                              pipeline=val_pipeline,
-                              split='xsub_train')
+    val_c = dict(type=dataset_type, ann_file=ann_file, split='xsub_val', pipeline=val_pipeline)
+    val_dataset = build_dataset(val_c, dict(test_mode=True))
+
+    # val_dataset = PoseDataset(ann_file=ann_file,
+    #                           pipeline=val_pipeline,
+    #                           test_mode=True,
+    #                           split='xsub_train')
 
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
@@ -440,7 +453,8 @@ def train(labeled_trainloader, unlabeled_trainloader, model, criterion, optimize
             # contrastive_loss
             output_fast = model(images_fast)
             if not args.use_finetuning or epoch < args.finetune_start_epoch:
-                output_slow = model(images_slow, unlabeled=True)
+                output_slow = model(images_slow)
+                # output_slow = model(images_slow, unlabeled=True)
             output_fast_detach = output_fast.detach()
             if epoch >= args.sup_thresh and epoch < args.finetune_start_epoch:
                 contrastive_loss = simclr_loss(torch.softmax(output_fast_detach, dim=1),

@@ -2,8 +2,10 @@
 import mmcv
 import os.path as osp
 
+from . import DATASETS
 from .base import BaseDataset
 
+@DATASETS.register_module()
 class PoseDataset(BaseDataset):
     """Pose dataset for action recognition.
 
