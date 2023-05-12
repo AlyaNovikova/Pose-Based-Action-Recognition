@@ -275,7 +275,7 @@ class GeneratePoseTarget:
 
             self.generate_heatmap(ret[i], kps, kpscores)
 
-        if self.input_format == 'Heatmap':
+        if self.input_format == 'NCTHW_Heatmap':
             return ret
 
         elif self.input_format == 'Skeleton':

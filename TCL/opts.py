@@ -11,6 +11,10 @@ parser.add_argument('--root_path', type=str, default="")
 parser.add_argument('--store_name', type=str, default="")
 # ========================= Model Configs ==========================
 parser.add_argument('--arch', type=str, default="resnet18")
+
+parser.add_argument('--input_f', type=str, default="Grayscale")
+parser.add_argument('--in_channels', type=int, default=1)
+
 parser.add_argument('--num_segments', type=int, default=3)
 parser.add_argument('--consensus_type', type=str, default='avg')
 parser.add_argument('--k', type=int, default=3)

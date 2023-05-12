@@ -28,6 +28,8 @@ def main():
     global args, best_prec1
     args = parser.parse_args()
 
+    print(args)
+
     ##asset check ####
     if args.use_finetuning:
         assert args.finetune_start_epoch > args.sup_thresh
@@ -70,7 +72,7 @@ def main():
 
     backbone = dict(
         type='ResNet3dSlowOnly',
-        in_channels=17,
+        in_channels=args.in_channels,
         base_channels=32,
         num_stages=3,
         out_indices=(2,),
@@ -173,9 +175,6 @@ def main():
 
     cudnn.benchmark = True
 
-    print('!!!!!!!!!!!11', args.root_path)
-    print('!!!!!!!!!!!22', args.store_name)
-
     # Data loading code
     # if args.modality != 'RGBDiff':
     #     normalize = GroupNormalize(input_mean, input_std)
@@ -214,6 +213,8 @@ def main():
     right_kp = [2, 4, 6, 8, 10, 12, 14, 16]
     work_dir = './work_dirs/posec3d/slowonly_r50_ntu60_xsub/joint'
 
+    input_format_c = args.input_f
+
     train_pipeline = [
         dict(type='UniformSampleFrames', clip_len=8),
         dict(type='PoseDecode'),
@@ -222,8 +223,8 @@ def main():
         dict(type='RandomResizedCrop', area_range=(0.56, 1.0)),
         dict(type='Resize', scale=(56, 56), keep_ratio=False),
         dict(type='Flip', flip_ratio=0.5, left_kp=left_kp, right_kp=right_kp),
-        dict(type='GeneratePoseTarget', with_kp=True, with_limb=False),
-        dict(type='FormatShape', input_format='NCTHW_Heatmap'),
+        dict(type='GeneratePoseTarget', with_kp=True, with_limb=False, input_format=input_format_c),
+        dict(type='FormatShape', input_format=input_format_c),
         dict(type='Collect', keys=['imgs', 'label'], meta_keys=[]),
         dict(type='ToTensor', keys=['imgs', 'label'])
     ]
@@ -236,8 +237,8 @@ def main():
         dict(type='RandomResizedCrop', area_range=(0.56, 1.0)),
         dict(type='Resize', scale=(56, 56), keep_ratio=False),
         dict(type='Flip', flip_ratio=0.5, left_kp=left_kp, right_kp=right_kp),
-        dict(type='GeneratePoseTarget', with_kp=True, with_limb=False, noise=True),
-        dict(type='FormatShape', input_format='NCTHW_Heatmap'),
+        dict(type='GeneratePoseTarget', with_kp=True, with_limb=False, noise=True, input_format=input_format_c),
+        dict(type='FormatShape', input_format=input_format_c),
         dict(type='Collect', keys=['imgs', 'label'], meta_keys=[]),
         dict(type='ToTensor', keys=['imgs', 'label'])
     ]
@@ -247,8 +248,8 @@ def main():
         dict(type='PoseDecode'),
         dict(type='PoseCompact', hw_ratio=1., allow_imgpad=True),
         dict(type='Resize', scale=(64, 64), keep_ratio=False),
-        dict(type='GeneratePoseTarget', with_kp=True, with_limb=False),
-        dict(type='FormatShape', input_format='NCTHW_Heatmap'),
+        dict(type='GeneratePoseTarget', with_kp=True, with_limb=False, input_format=input_format_c),
+        dict(type='FormatShape', input_format=input_format_c),
         dict(type='Collect', keys=['imgs', 'label'], meta_keys=[]),
         dict(type='ToTensor', keys=['imgs'])
     ]
@@ -259,7 +260,7 @@ def main():
 
     train_c = dict(
         type='RepeatDataset',
-        times=10,
+        times=1,
         dataset=dict(type=dataset_type, ann_file=ann_file, split='xsub_train', pipeline=train_pipeline))
     labeled_dataset = build_dataset(train_c)
 
@@ -271,7 +272,7 @@ def main():
 
     train_c_unl = dict(
         type='RepeatDataset',
-        times=10,
+        times=1,
         dataset=dict(type=dataset_type,
                      ann_file=ann_file,
                      split='xsub_train',
