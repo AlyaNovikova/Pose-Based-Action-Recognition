@@ -95,6 +95,7 @@ class PoseDataset(BaseDataset):
 
             new_data_len = len(data) // 4
             data = data[:new_data_len]
+            print('DATA LEN =', len(data))
 
         for item in data:
             # Sometimes we may need to load anno from the file

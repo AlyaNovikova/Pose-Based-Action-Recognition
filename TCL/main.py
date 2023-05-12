@@ -9,8 +9,14 @@ import torch.backends.cudnn as cudnn
 import torch.optim
 import torch.nn.functional as F
 from collections import defaultdict
+
+from mmcv.runner import build_optimizer
 from torch.nn.utils import clip_grad_norm_
 
+from lib.model.model_action import ActionNet
+from lib.utils.learning import load_backbone
+from lib.utils.tools import get_config
+from models import ResNet3dSlowOnly, Recognizer3D
 from ops.dataset import TSNDataSet
 from ops.models import TSN
 from ops.pose_dataset import PoseDataset
@@ -33,11 +39,12 @@ def main():
     if args.use_finetuning:
         assert args.finetune_start_epoch > args.sup_thresh
 
-    num_class, args.train_list, args.val_list, args.root_path, prefix = dataset_config.return_dataset(args.dataset,
-                                                                                                      args.modality)
+    # num_class, args.train_list, args.val_list, args.root_path, prefix = dataset_config.return_dataset(args.dataset,
+    #                                                                                                   args.modality)
     full_arch_name = args.arch
-    if args.temporal_pool:
-        full_arch_name += '_tpool'
+    # if args.temporal_pool:
+    #     full_arch_name += '_tpool'
+    args.root_path = '../../data/'
     args.store_name = '_'.join(
         ['TCL', datetime.datetime.now().strftime("%Y%m%d-%H%M%S"), args.dataset, full_arch_name,
          'p%.2f' % args.percentage, 'th%.2f' % args.threshold, 'gamma%0.2f' % args.gamma, 'mu%0.2f' % args.mu,
@@ -53,35 +60,78 @@ def main():
 
     check_rootfolders()
 
-    args.labeled_train_list, args.unlabeled_train_list = get_training_filenames(args.train_list)
+    # args.labeled_train_list, args.unlabeled_train_list = get_training_filenames(args.train_list)
 
-    model = TSN(num_class, args.num_segments, args.modality,
-                base_model=args.arch,
-                consensus_type=args.consensus_type,
-                dropout=args.dropout,
-                img_feature_dim=args.img_feature_dim,
-                partial_bn=not args.no_partialbn,
-                pretrain=args.pretrain,
-                second_segments=args.second_segments,
-                is_shift=args.shift, shift_div=args.shift_div, shift_place=args.shift_place,
-                fc_lr5=not (args.tune_from and args.dataset in args.tune_from),
-                temporal_pool=args.temporal_pool,
-                non_local=args.non_local)
+    # model = TSN(num_class, args.num_segments, args.modality,
+    #             base_model=args.arch,
+    #             consensus_type=args.consensus_type,
+    #             dropout=args.dropout,
+    #             img_feature_dim=args.img_feature_dim,
+    #             partial_bn=not args.no_partialbn,
+    #             pretrain=args.pretrain,
+    #             second_segments=args.second_segments,
+    #             is_shift=args.shift, shift_div=args.shift_div, shift_place=args.shift_place,
+    #             fc_lr5=not (args.tune_from and args.dataset in args.tune_from),
+    #             temporal_pool=args.temporal_pool,
+    #             non_local=args.non_local)
+
+    backbone = dict(
+        type='ResNet3dSlowOnly',
+        in_channels=17,
+        base_channels=32,
+        num_stages=3,
+        out_indices=(2,),
+        stage_blocks=(4, 6, 3),
+        conv1_stride=(1, 1),
+        pool1_stride=(1, 1),
+        inflate=(0, 1, 1),
+        spatial_strides=(2, 2, 2),
+        temporal_strides=(1, 1, 2))
+    cls_head = dict(
+        type='I3DHead',
+        in_channels=512,
+        num_classes=60,
+        dropout=0.5)
+    test_cfg = dict(average_clips='prob')
+
+    model = Recognizer3D(backbone=backbone, cls_head=cls_head, train_cfg=test_cfg)
+
+    # args_for_model = get_config('MB_train_NTU60_xsub.yaml')
+    # model_backbone = load_backbone(args_for_model)
+    # model = ActionNet(backbone=model_backbone,
+    #                   dim_rep=args_for_model.dim_rep,
+    #                   num_classes=args_for_model.action_classes,
+    #                   dropout_ratio=args_for_model.dropout_ratio,
+    #                   version=args_for_model.model_version,
+    #                   hidden_dim=args_for_model.hidden_dim,
+    #                   num_joints=args_for_model.num_joints)
+
     print("==============model desccription=============")
     print(model)
-    crop_size = model.crop_size
-    scale_size = model.scale_size
-    input_mean = model.input_mean
-    input_std = model.input_std
-    policies = model.get_optim_policies()
-    train_augmentation = model.get_augmentation(flip=args.flip)
+    # crop_size = model.crop_size
+    # scale_size = model.scale_size
+    # input_mean = model.input_mean
+    # input_std = model.input_std
+    # policies = model.get_optim_policies()
+    # train_augmentation = model.get_augmentation(flip=args.flip)
 
     model = torch.nn.DataParallel(model, device_ids=args.gpus).cuda()
+    optimizer_conf = dict(type='SGD', lr=0.4, momentum=0.9, weight_decay=0.0003)  # this lr is used for 8 gpus
+    optimizer_config = dict(grad_clip=dict(max_norm=40, norm_type=2))
+    optimizer = build_optimizer(model, optimizer_conf)
 
-    optimizer = torch.optim.SGD(policies,
-                                args.lr,
-                                momentum=args.momentum,
-                                weight_decay=args.weight_decay)
+    # optimizer = torch.optim.SGD(policies,
+    #                             args.lr,
+    #                             momentum=args.momentum,
+    #                             weight_decay=args.weight_decay)
+
+    # optimizer = torch.optim.SGD(
+    #     [{"params": filter(lambda p: p.requires_grad, model.module.backbone.parameters()), "lr": args_for_model.lr_backbone},
+    #      {"params": filter(lambda p: p.requires_grad, model.module.head.parameters()), "lr": args_for_model.lr_head},
+    #      ],
+    #     args.lr,
+    #     momentum=args.momentum,
+    #     weight_decay=args.weight_decay)
 
     if args.resume:
         if args.temporal_pool:  # early temporal pool so that we can load the state_dict
@@ -130,16 +180,19 @@ def main():
 
     cudnn.benchmark = True
 
-    # Data loading code
-    if args.modality != 'RGBDiff':
-        normalize = GroupNormalize(input_mean, input_std)
-    else:
-        normalize = IdentityTransform()
+    print('!!!!!!!!!!!11', args.root_path)
+    print('!!!!!!!!!!!22', args.store_name)
 
-    if args.modality == 'RGB':
-        data_length = 1
-    elif args.modality in ['Flow', 'RGBDiff']:
-        data_length = 5
+    # Data loading code
+    # if args.modality != 'RGBDiff':
+    #     normalize = GroupNormalize(input_mean, input_std)
+    # else:
+    #     normalize = IdentityTransform()
+
+    # if args.modality == 'RGB':
+    #     data_length = 1
+    # elif args.modality in ['Flow', 'RGBDiff']:
+    #     data_length = 5
 
     wandb.init(project='TCL', config=args)
 
@@ -163,7 +216,7 @@ def main():
     #     drop_last=False)  # prevent something not % n_GPU
 
     dataset_type = 'PoseDataset'
-    ann_file = '../../../../data/alya/ntu60_hrnet.pkl'
+    ann_file = '../../data/ntu60_hrnet.pkl'
     left_kp = [1, 3, 5, 7, 9, 11, 13, 15]
     right_kp = [2, 4, 6, 8, 10, 12, 14, 16]
     work_dir = './work_dirs/posec3d/slowonly_r50_ntu60_xsub/joint'
@@ -283,9 +336,9 @@ def main():
     else:
         raise ValueError("Unknown loss type")
 
-    for group in policies:
-        print(('group: {} has {} params, lr_mult: {}, decay_mult: {}'.format(
-            group['name'], len(group['params']), group['lr_mult'], group['decay_mult'])))
+    # for group in policies:
+    #     print(('group: {} has {} params, lr_mult: {}, decay_mult: {}'.format(
+    #         group['name'], len(group['params']), group['lr_mult'], group['decay_mult'])))
 
     if args.evaluate:
         validate(val_loader, model, criterion, 0)
@@ -304,7 +357,7 @@ def main():
             args.lr = args.finetune_lr
             default_start = args.finetune_start_epoch
             is_finetune_lr_set = True
-        adjust_learning_rate(optimizer, epoch, args.lr_type, args.lr_steps, default_start, using_policy=True)
+        # adjust_learning_rate(optimizer, epoch, args.lr_type, args.lr_steps, default_start, using_policy=True)
 
         # train for one epoch
         train(labeled_trainloader, unlabeled_trainloader, model,
@@ -350,10 +403,10 @@ def train(labeled_trainloader, unlabeled_trainloader, model, criterion, optimize
 
     model = model.cuda()
 
-    if args.no_partialbn:
-        model.module.partialBN(False)
-    else:
-        model.module.partialBN(True)
+    # if args.no_partialbn:
+    #     model.module.partialBN(False)
+    # else:
+    #     model.module.partialBN(True)
 
     # switch to train mode
     model.train()
