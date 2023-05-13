@@ -11,9 +11,10 @@ from collections import defaultdict
 from mmcv.runner import build_optimizer
 from torch.nn.utils import clip_grad_norm_
 
-from datasets import build_dataset
+# from datasets import build_dataset
 # from datasets.builder import build_dataset
 from models import Recognizer3D
+from ops.datasets import build_dataset
 from ops.transforms import *
 from opts import parser
 from ops.utils import AverageMeter, accuracy
@@ -186,7 +187,7 @@ def main():
     # elif args.modality in ['Flow', 'RGBDiff']:
     #     data_length = 5
 
-    wandb.init(project='TCL', config=args)
+    wandb.init(project='TCL_NTU60', config=args)
 
     # labeled_trainloader = torch.utils.data.DataLoader(
     #     TSNDataSet(args.root_path, args.labeled_train_list, unlabeled=False,

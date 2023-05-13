@@ -12,10 +12,14 @@ from mmcv.utils import print_log
 from torch.utils.data import Dataset
 
 # from pyskl.smp import auto_mix2
-from core import mean_average_precision, mean_class_accuracy, top_k_accuracy
+
+from ops.core import mean_average_precision, mean_class_accuracy, top_k_accuracy
 
 from .pipelines import Compose
 import wandb
+
+# from ..core import top_k_accuracy
+
 
 class BaseDataset(Dataset, metaclass=ABCMeta):
     """Base class for datasets.

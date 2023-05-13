@@ -9,7 +9,7 @@ from mmcv.runner import get_dist_info
 from mmcv.utils import Registry, build_from_cfg, digit_version
 from torch.utils.data import DataLoader
 
-from samplers import ClassSpecificDistributedSampler, DistributedSampler
+from .samplers import ClassSpecificDistributedSampler, DistributedSampler
 
 # from .samplers import ClassSpecificDistributedSampler, DistributedSampler
 
