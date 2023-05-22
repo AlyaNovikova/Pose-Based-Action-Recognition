@@ -2,15 +2,24 @@ import os
 import time
 import shutil
 import datetime
+from functools import partial
+
 import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torch.optim
 import torch.nn.functional as F
 from collections import defaultdict
 
+import torch.optim as optim
+import yaml
+from torch.optim.lr_scheduler import StepLR
+
 from mmcv.runner import build_optimizer
 from torch.nn.utils import clip_grad_norm_
+from tqdm.auto import tqdm
 
+from lib.model.DSTformer import DSTformer
+from lib.model.model_action import ActionNet
 # from datasets import build_dataset
 # from datasets.builder import build_dataset
 from models import Recognizer3D
@@ -21,8 +30,9 @@ from ops.utils import AverageMeter, accuracy
 from ops.temporal_shift import make_temporal_pool
 import wandb
 
-best_prec1 = 0
+from utils.tools import get_config
 
+best_prec1 = 0
 
 def main():
     print(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
@@ -90,17 +100,21 @@ def main():
         dropout=0.5)
     test_cfg = dict(average_clips='prob')
 
-    model = Recognizer3D(backbone=backbone, cls_head=cls_head, train_cfg=test_cfg)
-
-    # args_for_model = get_config('MB_train_NTU60_xsub.yaml')
-    # model_backbone = load_backbone(args_for_model)
-    # model = ActionNet(backbone=model_backbone,
-    #                   dim_rep=args_for_model.dim_rep,
-    #                   num_classes=args_for_model.action_classes,
-    #                   dropout_ratio=args_for_model.dropout_ratio,
-    #                   version=args_for_model.model_version,
-    #                   hidden_dim=args_for_model.hidden_dim,
-    #                   num_joints=args_for_model.num_joints)
+    if args.model_type == 'poseconv':
+        model = Recognizer3D(backbone=backbone, cls_head=cls_head, train_cfg=test_cfg)
+    elif args.model_type == 'motionbert':
+        args_bert = get_config('MB_train_NTU60_xsub.yaml')
+        model_backbone = DSTformer(dim_in=3, dim_out=3, dim_feat=args_bert.dim_feat, dim_rep=args_bert.dim_rep,
+                                   depth=args_bert.depth, num_heads=args_bert.num_heads, mlp_ratio=args_bert.mlp_ratio,
+                                   norm_layer=partial(torch.nn.LayerNorm, eps=1e-6),
+                                   maxlen=args_bert.maxlen, num_joints=args_bert.num_joints)
+        model = ActionNet(backbone=model_backbone,
+                          dim_rep=args_bert.dim_rep,
+                          num_classes=args_bert.action_classes,
+                          dropout_ratio=args_bert.dropout_ratio,
+                          version=args_bert.model_version,
+                          hidden_dim=args_bert.hidden_dim,
+                          num_joints=args_bert.num_joints)
 
     print("==============model desccription=============")
     print(model)
@@ -112,9 +126,16 @@ def main():
     # train_augmentation = model.get_augmentation(flip=args.flip)
 
     model = torch.nn.DataParallel(model, device_ids=args.gpus).cuda()
-    optimizer_conf = dict(type='SGD', lr=0.4, momentum=0.9, weight_decay=0.0003)  # this lr is used for 8 gpus
-    optimizer_config = dict(grad_clip=dict(max_norm=40, norm_type=2))
-    optimizer = build_optimizer(model, optimizer_conf)
+    # optimizer_conf = dict(type='SGD', lr=0.4, momentum=0.9, weight_decay=0.0003)  # this lr is used for 8 gpus
+    # optimizer_config = dict(grad_clip=dict(max_norm=40, norm_type=2))
+    # optimizer = build_optimizer(model, optimizer_conf)
+
+    optimizer = optim.AdamW(
+        model.parameters(),
+        lr=args.lr_backbone1,
+        weight_decay=args.weight_decay1
+    )
+    scheduler = StepLR(optimizer, step_size=100000, gamma=args.lr_decay1)
 
     # optimizer = torch.optim.SGD(policies,
     #                             args.lr,
@@ -122,8 +143,8 @@ def main():
     #                             weight_decay=args.weight_decay)
 
     # optimizer = torch.optim.SGD(
-    #     [{"params": filter(lambda p: p.requires_grad, model.module.backbone.parameters()), "lr": args_for_model.lr_backbone},
-    #      {"params": filter(lambda p: p.requires_grad, model.module.head.parameters()), "lr": args_for_model.lr_head},
+    #     [{"params": filter(lambda p: p.requires_grad, model.module.backbone.parameters()), "lr": args_bert.lr_backbone},
+    #      {"params": filter(lambda p: p.requires_grad, model.module.head.parameters()), "lr": args_bert.lr_head},
     #      ],
     #     args.lr,
     #     momentum=args.momentum,
@@ -376,7 +397,7 @@ def main():
 
         # train for one epoch
         train(labeled_trainloader, unlabeled_trainloader, model,
-              criterion, optimizer, epoch, log_training)
+              criterion, optimizer, scheduler, epoch, log_training)
 
         # evaluate on validation set
         if ((epoch + 1) % args.eval_freq == 0 or epoch == (args.epochs - 1) or (
@@ -405,7 +426,7 @@ def main():
             }, is_best, one_stage_pl)
 
 
-def train(labeled_trainloader, unlabeled_trainloader, model, criterion, optimizer, epoch, log):
+def train(labeled_trainloader, unlabeled_trainloader, model, criterion, optimizer, scheduler, epoch, log):
     batch_time = AverageMeter()
     data_time = AverageMeter()
     total_losses = AverageMeter()
@@ -432,7 +453,7 @@ def train(labeled_trainloader, unlabeled_trainloader, model, criterion, optimize
 
     end = time.time()
 
-    for i, data in enumerate(data_loader):
+    for i, data in enumerate(tqdm(data_loader)):
         # measure data loading time
         data_time.update(time.time() - end)
         # reseting losses
@@ -466,6 +487,7 @@ def train(labeled_trainloader, unlabeled_trainloader, model, criterion, optimize
                     grp_unlabeled_4seg = get_group(output_slow)
                     group_contrastive_loss = compute_group_contrastive_loss(grp_unlabeled_8seg, grp_unlabeled_4seg)
             elif args.use_finetuning and epoch >= args.finetune_start_epoch:
+                assert False
                 pseudo_label = torch.softmax(output_fast_detach, dim=-1)
                 max_probs, targets_pl = torch.max(pseudo_label, dim=-1)
                 mask = max_probs.ge(args.threshold).float()
@@ -507,18 +529,21 @@ def train(labeled_trainloader, unlabeled_trainloader, model, criterion, optimize
                 model.parameters(), args.clip_gradient)
 
         optimizer.step()
+        scheduler.step()
+
         optimizer.zero_grad()
 
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
 
-        wandb.log({f'train/total_loss': total_losses.avg}, commit=True)
-        wandb.log({f'train/supervised_loss': supervised_losses.avg}, commit=True)
-        wandb.log({f'train/contrastive_Loss': contrastive_losses.avg}, commit=True)
+        wandb.log({f'train/total_loss': total_loss.item()})
+        wandb.log({f'train/supervised_loss': loss.item()})
+        wandb.log({f'train/contrastive_Loss': contrastive_loss.item()})
+        wandb.log({f'train/group_contrastive_Loss': group_contrastive_loss.item()})
 
-        wandb.log({f'train/top1_acc': top1.avg}, commit=True)
-        wandb.log({f'train/top5_acc': top5.avg}, commit=True)
+        wandb.log({f'train/top1_acc': prec1.item()})
+        wandb.log({f'train/top5_acc': prec5.item()}, commit=True)
 
         if i % args.print_freq == 0:
             output = ('Epoch: [{0}][{1}], lr: {lr:.5f}\t'
@@ -571,10 +596,6 @@ def validate(val_loader, model, criterion, epoch, log=None):
             batch_time.update(time.time() - end)
             end = time.time()
 
-            wandb.log({f'val/loss': losses.avg}, commit=True)
-            wandb.log({f'val/top1_acc': top1.avg}, commit=True)
-            wandb.log({f'val/top5_acc': top5.avg}, commit=True)
-
             if i % args.print_freq == 0:
                 output = ('Test: [{0}/{1}]\t'
                           'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
@@ -587,6 +608,10 @@ def validate(val_loader, model, criterion, epoch, log=None):
                 if log is not None:
                     log.write(output + '\n')
                     log.flush()
+
+    wandb.log({f'val/loss': losses.avg, f'val/top1_acc': top1.avg, f'val/top5_acc': top5.avg})
+    # wandb.log({f'val/top1_acc': top1.avg})
+    # wandb.log({f'val/top5_acc': top5.avg})
 
     output = ('Testing Results: Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f} Loss {loss.avg:.5f}'
               .format(top1=top1, top5=top5, loss=losses))

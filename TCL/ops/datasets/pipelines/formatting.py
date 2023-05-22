@@ -3,6 +3,8 @@ import mmcv
 import numpy as np
 import torch
 from collections.abc import Sequence
+
+from matplotlib import pyplot as plt
 from mmcv.parallel import DataContainer as DC
 
 from ..builder import PIPELINES
@@ -282,6 +284,9 @@ class FormatShape(object):
                 num_clips = results['num_clips']
                 clip_len = results['clip_len']
                 imgs = results['imgs']
+
+                # plt.imshow(imgs[0], cmap='gray')
+                # plt.show()
 
                 imgs = imgs.reshape((imgs.shape[0], 1, imgs.shape[1], imgs.shape[2]))
 

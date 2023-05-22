@@ -12,6 +12,13 @@ parser.add_argument('--store_name', type=str, default="")
 # ========================= Model Configs ==========================
 parser.add_argument('--arch', type=str, default="resnet18")
 
+parser.add_argument('--model_type', type=str, default="poseconv")
+
+parser.add_argument('--lr_backbone1', type=float, default=0.001)
+parser.add_argument('--weight_decay1', type=float, default=0.01)
+parser.add_argument('--lr_decay1', type=float, default=0.1)
+
+
 parser.add_argument('--input_f', type=str, default="Grayscale")
 parser.add_argument('--in_channels', type=int, default=1)
 

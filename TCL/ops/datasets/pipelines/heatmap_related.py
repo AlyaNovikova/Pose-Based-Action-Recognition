@@ -1,5 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib import animation
 
 from ..builder import PIPELINES
 
@@ -210,26 +212,96 @@ class GeneratePoseTarget:
 
     def add_random_noise(self, kps, h, w):
         mean = 0
-        disp = 0.1 * (h + w) / 2
+        disp = 0.01 * (h + w) / 2
 
         kps_flat = kps.reshape(-1, 2)
 
         new_kps_flat = []
         for point in kps_flat:
             x, y = point
+
+            # assert x >= 0 or y >= 0 or x <= h or y <= w
+
             delta_x, delta_y = np.random.normal(mean, disp, size=2)
 
             # new_x = max(0, min(x + delta_x, h))
             # new_y = max(0, min(y + delta_y, w))
 
-            new_x = x + delta_x
-            new_y = y + delta_y
+            new_x = max(0, min(h, x + delta_x))
+            new_y = max(0, min(w, y + delta_y))
 
             new_kps_flat.append([new_x, new_y])
 
         new_kps_flat = np.array(new_kps_flat)
         new_kps = new_kps_flat.reshape(kps.shape)
         return new_kps
+
+
+    def plot_skeleton(self, keypoints, pairs, title):
+        fig, ax = plt.subplots()
+
+        scatter = ax.scatter([], [], color='red', label='Keypoints')
+        lines = []
+        def update(frame):
+            ax.cla()
+
+            ax.set_xlim([-10, 60])
+            ax.set_ylim([-10, 60])
+
+            scatter.set_offsets(keypoints[frame])
+
+            for connection in pairs:
+                start_point = keypoints[frame][connection[0]]
+                end_point = keypoints[frame][connection[1]]
+                line = ax.plot(*zip(start_point, end_point), color='blue')
+                lines.append(line)
+
+            # for keypoint in keypoints[frame]:
+            #     ax.plot(keypoint[0], keypoint[1], 'ro')  # 'ro' specifies red circles
+            #
+            # # Connect the keypoints with lines
+            # for pair in pairs:
+            #     start = keypoints[pair[0]]
+            #     end = keypoints[pair[1]]
+            #     ax.plot([start[0], end[0]], [start[1], end[1]], 'b-')  # 'b-' specifies blue lines
+
+        # Create the animation
+        ani = animation.FuncAnimation(fig, update, frames=len(keypoints), interval=200)
+        return ani
+
+        # Set up the video writer
+        Writer = animation.writers['ffmpeg']
+        writer = Writer(fps=2, metadata=dict(artist='Me'), bitrate=1800)
+
+        # Save the animation as a video file
+        ani.save(f'videos/{title}.mp4', writer=writer)
+
+        # Show the plot
+        # plt.show()
+
+    # def plot_skeleton(self, keypoints, pairs):
+    #     assert False
+    #
+    #     # Create a figure and axis
+    #     fig, ax = plt.subplots()
+    #
+    #     # Plot the keypoints
+    #     for keypoint in keypoints:
+    #         ax.plot(keypoint[0], keypoint[1], 'ro')  # 'ro' specifies red circles
+    #
+    #     # Connect the keypoints with lines
+    #     for pair in pairs:
+    #         start = keypoints[pair[0]]
+    #         end = keypoints[pair[1]]
+    #         ax.plot([start[0], end[0]], [start[1], end[1]], 'b-')  # 'b-' specifies blue lines
+    #
+    #     # Set the aspect ratio of the plot
+    #     # ax.set_aspect('equal')
+    #     plt.xlim(-10, 60)
+    #     plt.ylim(-10, 60)
+    #
+    #     # Show the plot
+    #     plt.show()
 
     def gen_an_aug(self, results):
         """Generate pseudo heatmaps for all frames.
@@ -256,8 +328,31 @@ class GeneratePoseTarget:
         img_w = int(img_w * self.scaling + 0.5)
         all_kps[..., :2] *= self.scaling
 
+        # x = all_kps[0, 0, :, 0]
+        # y = all_kps[0, 0, :, 1]
+
+
+        # keyps = all_kps[0, 0, :, :]
+
+        # hash_k = str(all_kps[0, 0, 0, 0])
+        # if self.noise:
+        #     self.plot_skeleton(all_kps[0, :, :, :], self.skeletons, f'init_skeleton_{hash_k}')
+
+        # plt.scatter(x, y)
+        # plt.xlim(0, 56)
+        # plt.ylim(0, 56)
+        # plt.show()
+
         if self.noise:
             all_kps = self.add_random_noise(all_kps, img_h, img_w)
+            # self.plot_skeleton(all_kps[0, :, :, :], self.skeletons, f'noise_skeleton_{hash_k}')
+
+        # x = all_kps[0, 0, :, 0]
+        # y = all_kps[0, 0, :, 1]
+        # plt.scatter(x, y)
+        # plt.xlim(0, 56)
+        # plt.ylim(0, 56)
+        # plt.show()
 
         num_frame = kp_shape[1]
         num_c = 0
