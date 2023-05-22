@@ -63,8 +63,8 @@ class ActionNet(nn.Module):
         '''
             Input: (N, M x T x 17 x 3) 
         '''
-        N, M, T, J, C = x.shape
-        x = x.reshape(N*M, T, J, C)        
+        N, BS, M, T, J, C = x.shape
+        x = x.reshape(N*M*BS, T, J, C)
         feat = self.backbone.get_representation(x)
         feat = feat.reshape([N, M, T, self.feat_J, -1])      # (N, M, T, J, C)
         out = self.head(feat)

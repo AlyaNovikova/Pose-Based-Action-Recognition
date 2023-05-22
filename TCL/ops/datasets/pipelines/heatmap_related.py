@@ -50,6 +50,7 @@ class GeneratePoseTarget:
                  with_limb=False,
                  input_format='Heatmap',
                  noise=False,
+                 model_type='poseconv',
                  skeletons=((0, 1), (0, 2), (1, 3), (2, 4), (0, 5), (5, 7),
                             (7, 9), (0, 6), (6, 8), (8, 10), (5, 11), (11, 13),
                             (13, 15), (6, 12), (12, 14), (14, 16), (11, 12)),
@@ -75,6 +76,7 @@ class GeneratePoseTarget:
         self.right_limb = right_limb
         self.scaling = scaling
         self.noise = noise
+        self.model_type = model_type
 
     def generate_a_heatmap(self, arr, centers, max_values):
         """Generate pseudo heatmap for one keypoint in one frame.
@@ -376,6 +378,11 @@ class GeneratePoseTarget:
         elif self.input_format == 'Skeleton':
             if all_kps.shape[0] == 1:
                 all_kps = np.concatenate([all_kps, all_kps], axis=0)
+                all_kpscores = np.concatenate([all_kpscores, all_kpscores], axis=0)
+
+            if self.model_type == 'motionbert':
+                res = np.concatenate((all_kps[:2, :, :, :], all_kpscores[:2, :, :, None]), axis=-1)
+                return res.astype(np.float32)
 
             return all_kps[:2].astype(np.float32)
             # return all_kps.astype(np.float32)

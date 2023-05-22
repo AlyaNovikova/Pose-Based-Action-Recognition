@@ -135,7 +135,7 @@ def main():
         lr=args.lr_backbone1,
         weight_decay=args.weight_decay1
     )
-    scheduler = StepLR(optimizer, step_size=100000, gamma=args.lr_decay1)
+    scheduler = StepLR(optimizer, step_size=200000, gamma=args.lr_decay1)
 
     # optimizer = torch.optim.SGD(policies,
     #                             args.lr,
@@ -245,8 +245,8 @@ def main():
         dict(type='RandomResizedCrop', area_range=(0.56, 1.0)),
         dict(type='Resize', scale=(56, 56), keep_ratio=False),
         dict(type='Flip', flip_ratio=0.5, left_kp=left_kp, right_kp=right_kp),
-        dict(type='GeneratePoseTarget', with_kp=True, with_limb=False, input_format=input_format_c),
-        dict(type='FormatShape', input_format=input_format_c),
+        dict(type='GeneratePoseTarget', with_kp=True, with_limb=False, input_format=input_format_c, model_type=args.model_type),
+        dict(type='FormatShape', input_format=input_format_c, model_type=args.model_type),
         dict(type='Collect', keys=['imgs', 'label'], meta_keys=[]),
         dict(type='ToTensor', keys=['imgs', 'label'])
     ]
@@ -259,8 +259,8 @@ def main():
         dict(type='RandomResizedCrop', area_range=(0.56, 1.0)),
         dict(type='Resize', scale=(56, 56), keep_ratio=False),
         dict(type='Flip', flip_ratio=0.5, left_kp=left_kp, right_kp=right_kp),
-        dict(type='GeneratePoseTarget', with_kp=True, with_limb=False, noise=True, input_format=input_format_c),
-        dict(type='FormatShape', input_format=input_format_c),
+        dict(type='GeneratePoseTarget', with_kp=True, with_limb=False, noise=True, input_format=input_format_c, model_type=args.model_type),
+        dict(type='FormatShape', input_format=input_format_c, model_type=args.model_type),
         dict(type='Collect', keys=['imgs', 'label'], meta_keys=[]),
         dict(type='ToTensor', keys=['imgs', 'label'])
     ]
@@ -270,8 +270,8 @@ def main():
         dict(type='PoseDecode'),
         dict(type='PoseCompact', hw_ratio=1., allow_imgpad=True),
         dict(type='Resize', scale=(64, 64), keep_ratio=False),
-        dict(type='GeneratePoseTarget', with_kp=True, with_limb=False, input_format=input_format_c),
-        dict(type='FormatShape', input_format=input_format_c),
+        dict(type='GeneratePoseTarget', with_kp=True, with_limb=False, input_format=input_format_c, model_type=args.model_type),
+        dict(type='FormatShape', input_format=input_format_c, model_type=args.model_type),
         dict(type='Collect', keys=['imgs', 'label'], meta_keys=[]),
         dict(type='ToTensor', keys=['imgs'])
     ]

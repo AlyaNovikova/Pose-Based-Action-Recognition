@@ -170,8 +170,9 @@ class FormatShape(object):
         input_format (str): Define the final imgs format.
     """
 
-    def __init__(self, input_format):
+    def __init__(self, input_format, model_type='poseconv'):
         self.input_format = input_format
+        self.model_type = model_type
         if self.input_format not in ['NCTHW', 'NCHW', 'NCTHW_Heatmap', 'Skeleton', 'Grayscale']:
             raise ValueError(
                 f'The input format {self.input_format} is invalid.')
@@ -259,6 +260,12 @@ class FormatShape(object):
                 num_clips = results['num_clips']
                 clip_len = results['clip_len']
                 imgs = results['imgs']
+
+                if self.model_type == 'motionbert':
+                    imgs = imgs.reshape((1, *imgs.shape))
+                    results['imgs'] = imgs
+                    results['input_shape'] = imgs.shape
+                    return results
 
                 # people x L x C x 2
                 imgs = np.transpose(imgs, (1, 0, 2, 3))
