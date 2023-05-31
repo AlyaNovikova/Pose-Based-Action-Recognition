@@ -96,7 +96,9 @@ class PoseDataset(BaseDataset):
             data = [x for x in data if x[identifier] in split]
 
             new_data_len = len(data) // 4
-            # data = data[:new_data_len]
+
+            # new_data_len = 10
+            # data = data[55:56]
             print('DATA LEN =', len(data))
 
         for item in data:

@@ -78,7 +78,7 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
 
         self.pipeline = Compose(pipeline)
         if noise_pipeline is not None:
-            self.noise_pipeline = Compose(noise_pipeline)
+            self.noise_pipeline = Compose(noise_pipeline, noise=True)
         self.video_infos = self.load_annotations()
 
     @abstractmethod

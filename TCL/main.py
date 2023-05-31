@@ -51,20 +51,20 @@ def main():
     # if args.temporal_pool:
     #     full_arch_name += '_tpool'
     args.root_path = '../../data/'
-    args.store_name = '_'.join(
-        ['TCL', datetime.datetime.now().strftime("%Y%m%d-%H%M%S"), args.dataset, full_arch_name,
-         'p%.2f' % args.percentage, 'th%.2f' % args.threshold, 'gamma%0.2f' % args.gamma, 'mu%0.2f' % args.mu,
-         'seed%d' % args.seed, 'seg%d' % args.num_segments, 'bs%d' % args.batch_size,
-         'e{}'.format(args.epochs)])
-    if args.dense_sample:
-        args.store_name += '_dense'
-    if args.non_local > 0:
-        args.store_name += '_nl'
-    if args.suffix is not None:
-        args.store_name += '_{}'.format(args.suffix)
-    print('storing name: ' + args.store_name)
+    # args.store_name = '_'.join(
+    #     ['TCL', datetime.datetime.now().strftime("%Y%m%d-%H%M%S"), args.dataset, full_arch_name,
+    #      'p%.2f' % args.percentage, 'th%.2f' % args.threshold, 'gamma%0.2f' % args.gamma, 'mu%0.2f' % args.mu,
+    #      'seed%d' % args.seed, 'seg%d' % args.num_segments, 'bs%d' % args.batch_size,
+    #      'e{}'.format(args.epochs)])
+    # if args.dense_sample:
+    #     args.store_name += '_dense'
+    # if args.non_local > 0:
+    #     args.store_name += '_nl'
+    # if args.suffix is not None:
+    #     args.store_name += '_{}'.format(args.suffix)
+    # print('storing name: ' + args.store_name)
 
-    check_rootfolders()
+    # check_rootfolders()
 
     # args.labeled_train_list, args.unlabeled_train_list = get_training_filenames(args.train_list)
 
@@ -135,7 +135,7 @@ def main():
         lr=args.lr_backbone1,
         weight_decay=args.weight_decay1
     )
-    scheduler = StepLR(optimizer, step_size=200000, gamma=args.lr_decay1)
+    scheduler = StepLR(optimizer, step_size=400000, gamma=args.lr_decay1)
 
     # optimizer = torch.optim.SGD(policies,
     #                             args.lr,
@@ -210,6 +210,22 @@ def main():
 
     wandb.init(project='TCL_NTU60', config=args)
 
+    state_cur = {
+        'optimizer': optimizer.state_dict(),
+        'scheduler': scheduler.state_dict(),
+        'wandb_name': wandb.run.name
+    }
+
+    args.store_name = '_'.join(
+        list(map(str, ['TCL', state_cur['wandb_name'],
+         args.gamma,
+         args.sup_thresh, args.epochs, args.batch_size,
+         state_cur['optimizer']['param_groups'][0]['lr'], state_cur['optimizer']['param_groups'][0]['weight_decay'],
+         state_cur['scheduler']['step_size'], state_cur['scheduler']['gamma'],
+         datetime.datetime.now().strftime("%Y%m%d-%H%M%S")])))
+
+    check_rootfolders()
+
     # labeled_trainloader = torch.utils.data.DataLoader(
     #     TSNDataSet(args.root_path, args.labeled_train_list, unlabeled=False,
     #                num_segments=args.num_segments,
@@ -233,12 +249,11 @@ def main():
     ann_file = '../../data/ntu60_hrnet.pkl'
     left_kp = [1, 3, 5, 7, 9, 11, 13, 15]
     right_kp = [2, 4, 6, 8, 10, 12, 14, 16]
-    work_dir = './work_dirs/posec3d/slowonly_r50_ntu60_xsub/joint'
 
     input_format_c = args.input_f
 
     train_pipeline = [
-        dict(type='UniformSampleFrames', clip_len=8),
+        dict(type='UniformSampleFrames', clip_len=32),
         dict(type='PoseDecode'),
         dict(type='PoseCompact', hw_ratio=1., allow_imgpad=True),
         dict(type='Resize', scale=(-1, 64)),
@@ -252,7 +267,7 @@ def main():
     ]
 
     noise_train_pipeline = [
-        dict(type='UniformSampleFrames', clip_len=8),
+        dict(type='UniformSampleFrames', clip_len=32),
         dict(type='PoseDecode'),
         dict(type='PoseCompact', hw_ratio=1., allow_imgpad=True),
         dict(type='Resize', scale=(-1, 64)),
@@ -266,10 +281,10 @@ def main():
     ]
 
     val_pipeline = [
-        dict(type='UniformSampleFrames', clip_len=8, num_clips=1),
+        dict(type='UniformSampleFrames', clip_len=32, num_clips=1),
         dict(type='PoseDecode'),
         dict(type='PoseCompact', hw_ratio=1., allow_imgpad=True),
-        dict(type='Resize', scale=(64, 64), keep_ratio=False),
+        dict(type='Resize', scale=(56, 56), keep_ratio=False),
         dict(type='GeneratePoseTarget', with_kp=True, with_limb=False, input_format=input_format_c, model_type=args.model_type),
         dict(type='FormatShape', input_format=input_format_c, model_type=args.model_type),
         dict(type='Collect', keys=['imgs', 'label'], meta_keys=[]),
@@ -422,6 +437,8 @@ def main():
                 'arch': args.arch,
                 'state_dict': model.state_dict(),
                 'optimizer': optimizer.state_dict(),
+                'scheduler': scheduler.state_dict(),
+                'wandb_name': wandb.run.name,
                 'best_prec1': best_prec1,
             }, is_best, one_stage_pl)
 
@@ -507,7 +524,7 @@ def train(labeled_trainloader, unlabeled_trainloader, model, criterion, optimize
         output = model(input)
         loss = criterion(output, target_var.squeeze(1))
 
-        total_loss = loss + args.gamma * contrastive_loss + group_contrastive_loss + args.gamma_finetune * pl_loss
+        total_loss = loss + args.gamma * contrastive_loss + args.gamma2 * group_contrastive_loss + args.gamma_finetune * pl_loss
         # measure accuracy and record loss
         prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
         if epoch >= args.sup_thresh:
@@ -653,7 +670,18 @@ def compute_group_contrastive_loss(grp_dict_un, grp_dict_lab):
 
 
 def save_checkpoint(state, is_best, one_stage_pl=False):
+    # filename = '%s/%s/ckpt.pth.tar' % (args.root_model, args.store_name)
+    # list(map(str, original_list))
+    # store_name = '_'.join(
+    #     list(map(str, ['TCL', state['wandb_name'],
+    #      args.gamma,
+    #      args.sup_thresh, args.epochs, args.batch_size,
+    #      state['optimizer']['param_groups'][0]['lr'], state['optimizer']['param_groups'][0]['weight_decay'],
+    #      state['scheduler']['step_size'], state['scheduler']['gamma'],
+    #      datetime.datetime.now().strftime("%Y%m%d-%H%M%S")])))
+
     filename = '%s/%s/ckpt.pth.tar' % (args.root_model, args.store_name)
+    # filename = f'{args.root_model}/{state['scheduler']['step_size']}_{state['scheduler']['step_size']}{state['scheduler']['gamma']}/ckpt.pth.tar'
     torch.save(state, filename)
     if is_best:
         shutil.copyfile(filename, filename.replace('pth.tar', 'best.pth.tar'))

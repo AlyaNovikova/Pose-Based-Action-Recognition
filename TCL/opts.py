@@ -71,6 +71,9 @@ parser.add_argument('--no_partialbn', '--npb',
                     default=False, action="store_true")
 parser.add_argument('--gamma', default=1.0, type=float,
                     metavar='G', help='weight of contrastive loss')
+
+parser.add_argument('--gamma2', default=1.0, type=float, help='weight of group contrastive loss')
+
 parser.add_argument('--percentage', default=0.95, type=float,
                     help='should be between 0 and 1. decides percent of training\
      data to be allocated to unlabeled data')

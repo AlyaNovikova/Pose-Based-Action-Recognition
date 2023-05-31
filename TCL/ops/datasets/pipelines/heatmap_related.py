@@ -345,8 +345,8 @@ class GeneratePoseTarget:
         # plt.ylim(0, 56)
         # plt.show()
 
-        if self.noise:
-            all_kps = self.add_random_noise(all_kps, img_h, img_w)
+        # if self.noise:
+        #     all_kps = self.add_random_noise(all_kps, img_h, img_w)
             # self.plot_skeleton(all_kps[0, :, :, :], self.skeletons, f'noise_skeleton_{hash_k}')
 
         # x = all_kps[0, 0, :, 0]
