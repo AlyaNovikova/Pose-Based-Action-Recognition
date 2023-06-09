@@ -98,7 +98,7 @@ class PoseDataset(BaseDataset):
             new_data_len = len(data) // 4
 
             # new_data_len = 10
-            # data = data[55:56]
+            # data = data[12000:12005]
             print('DATA LEN =', len(data))
 
         for item in data:

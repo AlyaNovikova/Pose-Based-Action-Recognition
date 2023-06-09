@@ -34,6 +34,7 @@ from utils.tools import get_config
 
 best_prec1 = 0
 
+
 def main():
     print(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
     global args, best_prec1
@@ -48,38 +49,7 @@ def main():
     # num_class, args.train_list, args.val_list, args.root_path, prefix = dataset_config.return_dataset(args.dataset,
     #                                                                                                   args.modality)
     full_arch_name = args.arch
-    # if args.temporal_pool:
-    #     full_arch_name += '_tpool'
-    args.root_path = '../../data/'
-    # args.store_name = '_'.join(
-    #     ['TCL', datetime.datetime.now().strftime("%Y%m%d-%H%M%S"), args.dataset, full_arch_name,
-    #      'p%.2f' % args.percentage, 'th%.2f' % args.threshold, 'gamma%0.2f' % args.gamma, 'mu%0.2f' % args.mu,
-    #      'seed%d' % args.seed, 'seg%d' % args.num_segments, 'bs%d' % args.batch_size,
-    #      'e{}'.format(args.epochs)])
-    # if args.dense_sample:
-    #     args.store_name += '_dense'
-    # if args.non_local > 0:
-    #     args.store_name += '_nl'
-    # if args.suffix is not None:
-    #     args.store_name += '_{}'.format(args.suffix)
-    # print('storing name: ' + args.store_name)
 
-    # check_rootfolders()
-
-    # args.labeled_train_list, args.unlabeled_train_list = get_training_filenames(args.train_list)
-
-    # model = TSN(num_class, args.num_segments, args.modality,
-    #             base_model=args.arch,
-    #             consensus_type=args.consensus_type,
-    #             dropout=args.dropout,
-    #             img_feature_dim=args.img_feature_dim,
-    #             partial_bn=not args.no_partialbn,
-    #             pretrain=args.pretrain,
-    #             second_segments=args.second_segments,
-    #             is_shift=args.shift, shift_div=args.shift_div, shift_place=args.shift_place,
-    #             fc_lr5=not (args.tune_from and args.dataset in args.tune_from),
-    #             temporal_pool=args.temporal_pool,
-    #             non_local=args.non_local)
 
     backbone = dict(
         type='ResNet3dSlowOnly',
@@ -118,17 +88,8 @@ def main():
 
     print("==============model desccription=============")
     print(model)
-    # crop_size = model.crop_size
-    # scale_size = model.scale_size
-    # input_mean = model.input_mean
-    # input_std = model.input_std
-    # policies = model.get_optim_policies()
-    # train_augmentation = model.get_augmentation(flip=args.flip)
 
     model = torch.nn.DataParallel(model, device_ids=args.gpus).cuda()
-    # optimizer_conf = dict(type='SGD', lr=0.4, momentum=0.9, weight_decay=0.0003)  # this lr is used for 8 gpus
-    # optimizer_config = dict(grad_clip=dict(max_norm=40, norm_type=2))
-    # optimizer = build_optimizer(model, optimizer_conf)
 
     optimizer = optim.AdamW(
         model.parameters(),
@@ -136,19 +97,6 @@ def main():
         weight_decay=args.weight_decay1
     )
     scheduler = StepLR(optimizer, step_size=400000, gamma=args.lr_decay1)
-
-    # optimizer = torch.optim.SGD(policies,
-    #                             args.lr,
-    #                             momentum=args.momentum,
-    #                             weight_decay=args.weight_decay)
-
-    # optimizer = torch.optim.SGD(
-    #     [{"params": filter(lambda p: p.requires_grad, model.module.backbone.parameters()), "lr": args_bert.lr_backbone},
-    #      {"params": filter(lambda p: p.requires_grad, model.module.head.parameters()), "lr": args_bert.lr_head},
-    #      ],
-    #     args.lr,
-    #     momentum=args.momentum,
-    #     weight_decay=args.weight_decay)
 
     if args.resume:
         if args.temporal_pool:  # early temporal pool so that we can load the state_dict
@@ -196,18 +144,6 @@ def main():
         make_temporal_pool(model.module.base_model, args.num_segments)
 
     cudnn.benchmark = True
-
-    # Data loading code
-    # if args.modality != 'RGBDiff':
-    #     normalize = GroupNormalize(input_mean, input_std)
-    # else:
-    #     normalize = IdentityTransform()
-
-    # if args.modality == 'RGB':
-    #     data_length = 1
-    # elif args.modality in ['Flow', 'RGBDiff']:
-    #     data_length = 5
-
     wandb.init(project='TCL_NTU60', config=args)
 
     state_cur = {
@@ -218,32 +154,14 @@ def main():
 
     args.store_name = '_'.join(
         list(map(str, ['TCL', state_cur['wandb_name'],
-         args.gamma,
-         args.sup_thresh, args.epochs, args.batch_size,
-         state_cur['optimizer']['param_groups'][0]['lr'], state_cur['optimizer']['param_groups'][0]['weight_decay'],
-         state_cur['scheduler']['step_size'], state_cur['scheduler']['gamma'],
-         datetime.datetime.now().strftime("%Y%m%d-%H%M%S")])))
+                       args.gamma,
+                       args.sup_thresh, args.epochs, args.batch_size,
+                       state_cur['optimizer']['param_groups'][0]['lr'],
+                       state_cur['optimizer']['param_groups'][0]['weight_decay'],
+                       state_cur['scheduler']['step_size'], state_cur['scheduler']['gamma'],
+                       datetime.datetime.now().strftime("%Y%m%d-%H%M%S")])))
 
     check_rootfolders()
-
-    # labeled_trainloader = torch.utils.data.DataLoader(
-    #     TSNDataSet(args.root_path, args.labeled_train_list, unlabeled=False,
-    #                num_segments=args.num_segments,
-    #                new_length=data_length,
-    #                modality=args.modality,
-    #                image_tmpl=prefix,
-    #                second_segments = args.second_segments,
-    #                transform=torchvision.transforms.Compose([
-    #                    train_augmentation,
-    #                    Stack(
-    #                        roll=(args.arch in ['BNInception', 'InceptionV3'])),
-    #                    ToTorchFormatTensor(
-    #                        div=(args.arch not in ['BNInception', 'InceptionV3'])),
-    #                    normalize,
-    #                ]), dense_sample=args.dense_sample),
-    #     batch_size=args.batch_size, shuffle=True,
-    #     num_workers=args.workers, pin_memory=True,
-    #     drop_last=False)  # prevent something not % n_GPU
 
     dataset_type = 'PoseDataset'
     ann_file = '../../data/ntu60_hrnet.pkl'
@@ -252,40 +170,78 @@ def main():
 
     input_format_c = args.input_f
 
+    # define loss function (criterion) and optimizer
+    if args.loss_type == 'nll':
+        criterion = torch.nn.CrossEntropyLoss().cuda()
+    else:
+        raise ValueError("Unknown loss type")
+
+    if args.evaluate:
+        alphas = [0, 0.001, 0.005, 0.01, 0.015, 0.02, 0.03, 0.05, 0.1]
+
+        val_pipeline = [
+            dict(type='UniformSampleFrames', clip_len=24, num_clips=1),
+            dict(type='PoseDecode'),
+            dict(type='PoseCompact', hw_ratio=1., allow_imgpad=True),
+            dict(type='Resize', scale=(56, 56), keep_ratio=False),
+            dict(type='GeneratePoseTarget', with_kp=True, with_limb=False, input_format=input_format_c,
+                 model_type=args.model_type),
+            dict(type='FormatShape', input_format=input_format_c, model_type=args.model_type),
+            dict(type='Collect', keys=['imgs', 'label'], meta_keys=[]),
+            dict(type='ToTensor', keys=['imgs'])
+        ]
+
+        for alpha in alphas:
+            val_c = dict(type=dataset_type, ann_file=ann_file, split='xsub_val',
+                         pipeline=val_pipeline,
+                         noise_alpha=alpha, val_pipeline=val_pipeline, is_val_pipeline=True)
+            val_dataset = build_dataset(val_c, dict(test_mode=True))
+
+            val_loader = torch.utils.data.DataLoader(
+                val_dataset,
+                batch_size=args.valbatchsize, shuffle=False,
+                num_workers=args.workers, pin_memory=True)  # prevent something not % n_GPU
+            validate(val_loader, model, criterion, 0)
+
+        return
+
     train_pipeline = [
-        dict(type='UniformSampleFrames', clip_len=32),
+        dict(type='UniformSampleFrames', clip_len=24),
         dict(type='PoseDecode'),
         dict(type='PoseCompact', hw_ratio=1., allow_imgpad=True),
         dict(type='Resize', scale=(-1, 64)),
         dict(type='RandomResizedCrop', area_range=(0.56, 1.0)),
         dict(type='Resize', scale=(56, 56), keep_ratio=False),
         dict(type='Flip', flip_ratio=0.5, left_kp=left_kp, right_kp=right_kp),
-        dict(type='GeneratePoseTarget', with_kp=True, with_limb=False, input_format=input_format_c, model_type=args.model_type),
+        dict(type='GeneratePoseTarget', with_kp=True, with_limb=False, input_format=input_format_c,
+             model_type=args.model_type),
         dict(type='FormatShape', input_format=input_format_c, model_type=args.model_type),
         dict(type='Collect', keys=['imgs', 'label'], meta_keys=[]),
         dict(type='ToTensor', keys=['imgs', 'label'])
     ]
 
     noise_train_pipeline = [
-        dict(type='UniformSampleFrames', clip_len=32),
+        dict(type='UniformSampleFrames', clip_len=24),
         dict(type='PoseDecode'),
         dict(type='PoseCompact', hw_ratio=1., allow_imgpad=True),
         dict(type='Resize', scale=(-1, 64)),
         dict(type='RandomResizedCrop', area_range=(0.56, 1.0)),
         dict(type='Resize', scale=(56, 56), keep_ratio=False),
         dict(type='Flip', flip_ratio=0.5, left_kp=left_kp, right_kp=right_kp),
-        dict(type='GeneratePoseTarget', with_kp=True, with_limb=False, noise=True, input_format=input_format_c, model_type=args.model_type),
+        dict(type='GeneratePoseTarget', with_kp=True, with_limb=False, noise=True, input_format=input_format_c,
+             model_type=args.model_type),
         dict(type='FormatShape', input_format=input_format_c, model_type=args.model_type),
         dict(type='Collect', keys=['imgs', 'label'], meta_keys=[]),
         dict(type='ToTensor', keys=['imgs', 'label'])
     ]
 
     val_pipeline = [
-        dict(type='UniformSampleFrames', clip_len=32, num_clips=1),
+        dict(type='UniformSampleFrames', clip_len=24, num_clips=1),
         dict(type='PoseDecode'),
         dict(type='PoseCompact', hw_ratio=1., allow_imgpad=True),
         dict(type='Resize', scale=(56, 56), keep_ratio=False),
-        dict(type='GeneratePoseTarget', with_kp=True, with_limb=False, input_format=input_format_c, model_type=args.model_type),
+        dict(type='GeneratePoseTarget', with_kp=True, with_limb=False, input_format=input_format_c,
+             model_type=args.model_type),
         dict(type='FormatShape', input_format=input_format_c, model_type=args.model_type),
         dict(type='Collect', keys=['imgs', 'label'], meta_keys=[]),
         dict(type='ToTensor', keys=['imgs'])
@@ -315,13 +271,9 @@ def main():
                      split='xsub_train',
                      pipeline=train_pipeline,
                      noise=True,
+                     noise_alpha=args.noise_alpha,
                      noise_pipeline=noise_train_pipeline))
     unlabeled_dataset = build_dataset(train_c_unl)
-    # unlabeled_dataset = PoseDataset(ann_file=ann_file,
-    #                                 pipeline=train_pipeline,
-    #                                 noise=True,
-    #                                 noise_pipeline=noise_train_pipeline,
-    #                                 split='xsub_train')
 
     unlabeled_trainloader = torch.utils.data.DataLoader(
         unlabeled_dataset,
@@ -332,68 +284,10 @@ def main():
     val_c = dict(type=dataset_type, ann_file=ann_file, split='xsub_val', pipeline=val_pipeline)
     val_dataset = build_dataset(val_c, dict(test_mode=True))
 
-    # val_dataset = PoseDataset(ann_file=ann_file,
-    #                           pipeline=val_pipeline,
-    #                           test_mode=True,
-    #                           split='xsub_train')
-
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
         batch_size=args.valbatchsize, shuffle=False,
         num_workers=args.workers, pin_memory=True)  # prevent something not % n_GPU
-
-    # unlabeled_trainloader = torch.utils.data.DataLoader(
-    #     TSNDataSet(args.root_path, args.unlabeled_train_list, unlabeled=True,
-    #                num_segments=args.num_segments,
-    #                new_length=data_length,
-    #                modality=args.modality,
-    #                image_tmpl=prefix,
-    #                second_segments = args.second_segments,
-    #                transform=torchvision.transforms.Compose([
-    #                    train_augmentation,
-    #                    Stack(
-    #                        roll=(args.arch in ['BNInception', 'InceptionV3'])),
-    #                    ToTorchFormatTensor(
-    #                        div=(args.arch not in ['BNInception', 'InceptionV3'])),
-    #                    normalize,
-    #                ]), dense_sample=args.dense_sample),
-    #     batch_size=int(np.round(args.mu * args.batch_size)), shuffle=True,
-    #     num_workers=args.workers, pin_memory=True,
-    #     drop_last=False)  # prevent something not % n_GPU
-    #
-    # val_loader = torch.utils.data.DataLoader(
-    #     TSNDataSet(args.root_path, args.val_list, unlabeled=False,
-    #                num_segments=args.num_segments,
-    #                new_length=data_length,
-    #                modality=args.modality,
-    #                image_tmpl=prefix,
-    #                random_shift=False,
-    #                second_segments=args.second_segments,
-    #                transform=torchvision.transforms.Compose([
-    #                    GroupScale(int(scale_size)),
-    #                    GroupCenterCrop(crop_size),
-    #                    Stack(
-    #                        roll=(args.arch in ['BNInception', 'InceptionV3'])),
-    #                    ToTorchFormatTensor(
-    #                        div=(args.arch not in ['BNInception', 'InceptionV3'])),
-    #                    normalize,
-    #                ]), dense_sample=args.dense_sample),
-    #     batch_size=args.valbatchsize, shuffle=False,
-    #     num_workers=args.workers, pin_memory=True)
-
-    # define loss function (criterion) and optimizer
-    if args.loss_type == 'nll':
-        criterion = torch.nn.CrossEntropyLoss().cuda()
-    else:
-        raise ValueError("Unknown loss type")
-
-    # for group in policies:
-    #     print(('group: {} has {} params, lr_mult: {}, decay_mult: {}'.format(
-    #         group['name'], len(group['params']), group['lr_mult'], group['decay_mult'])))
-
-    if args.evaluate:
-        validate(val_loader, model, criterion, 0)
-        return
 
     log_training = open(os.path.join(
         args.root_log, args.store_name, 'log.csv'), 'w')
@@ -464,7 +358,8 @@ def train(labeled_trainloader, unlabeled_trainloader, model, criterion, optimize
     # switch to train mode
     model.train()
     if epoch >= args.sup_thresh or (args.use_finetuning and epoch >= args.finetune_start_epoch):
-        data_loader = zip(labeled_trainloader, unlabeled_trainloader)
+        # data_loader = zip(labeled_trainloader, unlabeled_trainloader)
+        data_loader = unlabeled_trainloader
     else:
         data_loader = labeled_trainloader
 
@@ -478,22 +373,22 @@ def train(labeled_trainloader, unlabeled_trainloader, model, criterion, optimize
         pl_loss = torch.tensor(0.0).cuda()
         loss = torch.tensor(0.0).cuda()
         group_contrastive_loss = torch.tensor(0.0).cuda()
-
+        is_labeled_data = False
         if epoch >= args.sup_thresh or (args.use_finetuning and epoch >= args.finetune_start_epoch):
-
-            (labeled_data, unlabeled_data) = data
+            unlabeled_data = data
+            # (labeled_data, unlabeled_data) = data
             # images_fast, images_slow = unlabeled_data
-            images_fast, images_slow = unlabeled_data
-            images_fast, images_slow = images_fast['imgs'], images_slow['imgs']
-            images_slow = images_slow.cuda()
-            images_fast = images_fast.cuda()
-            images_slow = torch.autograd.Variable(images_slow)
-            images_fast = torch.autograd.Variable(images_fast)
+            images_init, images_noise = unlabeled_data
+            images_init, images_noise = images_init['imgs'], images_noise['imgs']
+            images_noise = images_noise.cuda()
+            images_init = images_init.cuda()
+            images_noise = torch.autograd.Variable(images_noise)
+            images_init = torch.autograd.Variable(images_init)
 
             # contrastive_loss
-            output_fast = model(images_fast)
+            output_fast = model(images_init)
             if not args.use_finetuning or epoch < args.finetune_start_epoch:
-                output_slow = model(images_slow)
+                output_slow = model(images_noise)
                 # output_slow = model(images_slow, unlabeled=True)
             output_fast_detach = output_fast.detach()
             if epoch >= args.sup_thresh and epoch < args.finetune_start_epoch:
@@ -513,12 +408,21 @@ def train(labeled_trainloader, unlabeled_trainloader, model, criterion, optimize
                 pl_loss = (F.cross_entropy(output_fast, targets_pl,
                                            reduction='none') * mask).mean()
         else:
+            is_labeled_data = True
             labeled_data = data
-        # input, target = labeled_data
-        input = labeled_data['imgs']
-        target = labeled_data['label']
-        target = target.cuda()
-        input = input.cuda()
+
+        if is_labeled_data:
+            input = labeled_data['imgs']
+            target = labeled_data['label']
+            target = target.cuda()
+            input = input.cuda()
+        else:
+            input = images_init
+            target = unlabeled_data[0]['label']
+            # input = labeled_data['imgs']
+            # target = labeled_data['label']
+            target = target.cuda()
+            # input = input.cuda()
         input = torch.autograd.Variable(input)
         target_var = torch.autograd.Variable(target)
         output = model(input)

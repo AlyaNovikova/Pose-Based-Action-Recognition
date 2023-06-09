@@ -59,7 +59,10 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
                  modality='RGB',
                  memcached=False,
                  noise=False,
+                 noise_alpha=0.01,
                  noise_pipeline=None,
+                 val_pipeline=None,
+                 is_val_pipeline=False,
                  mc_cfg=('localhost', 22077)):
         super().__init__()
 
@@ -78,7 +81,12 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
 
         self.pipeline = Compose(pipeline)
         if noise_pipeline is not None:
-            self.noise_pipeline = Compose(noise_pipeline, noise=True)
+            self.noise_pipeline = Compose(noise_pipeline, noise=True, noise_alpha=noise_alpha)
+
+        if val_pipeline is not None:
+            self.val_pipeline = Compose(val_pipeline, noise=True, noise_alpha=noise_alpha)
+        self.is_val_pipeline = is_val_pipeline
+
         self.video_infos = self.load_annotations()
 
     @abstractmethod
@@ -291,7 +299,7 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
 
         return self.noise_pipeline(results)
 
-    def prepare_test_frames(self, idx):
+    def prepare_test_frames(self, idx, val_noise=False):
         """Prepare the frames for testing given the index."""
         results = copy.deepcopy(self.video_infos[idx])
         if self.memcached and 'key' in results:
@@ -330,7 +338,11 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
             results['label'] = onehot
 
         results['test_mode'] = self.test_mode
-        return self.pipeline(results)
+
+        if val_noise:
+            return self.val_pipeline(results)
+        else:
+            return self.pipeline(results)
 
     def __len__(self):
         """Get the size of the dataset."""
@@ -338,6 +350,9 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
 
     def __getitem__(self, idx):
         """Get the sample for either training or testing given index."""
+        if self.is_val_pipeline:
+            return self.prepare_test_frames(idx, val_noise=True)
+
         if not self.noise:
             return self.prepare_test_frames(idx) if self.test_mode else self.prepare_train_frames(idx)
 

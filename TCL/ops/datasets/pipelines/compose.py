@@ -18,10 +18,11 @@ class Compose:
             Either config dicts of transforms or transform objects.
     """
 
-    def __init__(self, transforms, noise=False):
+    def __init__(self, transforms, noise=False, noise_alpha=0.003):
         assert isinstance(transforms, Sequence)
         self.transforms = []
         self.noise = noise
+        self.noise_alpha = noise_alpha
         for transform in transforms:
             if isinstance(transform, dict):
                 transform = build_from_cfg(transform, PIPELINES)
@@ -33,7 +34,17 @@ class Compose:
                                 f'but got {type(transform)}')
 
     def add_random_noise(self, kps, h, w):
-        alpha = 0.0001
+        kps = kps.astype(float)
+        pairwise_diff = kps[0][:-1] - kps[0][1:]
+        distances = np.linalg.norm(pairwise_diff, axis=2)
+        total_difference = np.sum(distances)
+
+        diff_coeff = max(0.2, min(1, np.sqrt(total_difference / 10000)))
+        alpha = self.noise_alpha * diff_coeff
+
+        # random_number = random.randint(0, 1000)
+        # if random_number < 2:
+        #     print('Alpha', self.noise_alpha, alpha)
 
         mean = 0
         std_h = alpha * h
@@ -44,11 +55,14 @@ class Compose:
         for point in kps_flat:
             x, y = point
 
-            delta_x = np.random.normal(mean, std_h, size=1)[0]
-            delta_y = np.random.normal(mean, std_w, size=1)[0]
+            delta_x = np.random.normal(mean, std_w, size=1)[0]
+            delta_y = np.random.normal(mean, std_h, size=1)[0]
 
-            new_x = max(0, min(h, x + delta_x))
-            new_y = max(0, min(w, y + delta_y))
+            new_x = x + delta_x
+            new_y = y + delta_y
+
+            # new_x = max(0, min(w, x + delta_x))
+            # new_y = max(0, min(h, y + delta_y))
 
             new_kps_flat.append([new_x, new_y])
 
@@ -56,41 +70,80 @@ class Compose:
         new_kps = new_kps_flat.reshape(kps.shape)
         return new_kps
 
-    def plot_skeleton(self, keypoints, pairs, h, w, title):
-        fig, ax = plt.subplots()
+    def plot_skeleton_sc(self, keypoints, pairs, h, w, title):
+        x = keypoints[0, :, 0]
+        y = keypoints[0, :, 1]
 
-        scatter = ax.scatter([], [], color='red', label='Keypoints')
-        lines = []
+        # Plot the keypoints
+        plt.figure()
+        plt.scatter(x, y, c='r')
+
+        for limb in pairs:
+            plt.plot([x[limb[0]], x[limb[1]]], [y[limb[0]], y[limb[1]]], 'g-', linewidth=2)
+
+        # plt.plot(x, y, 'r-', linewidth=2)
+
+        # Add labels to keypoints
+        # for i, (x_coord, y_coord) in enumerate(zip(x, y)):
+        #     plt.text(x_coord, y_coord, str(i + 1), color='b')
+
+        # Set axis limits
+        plt.xlim(np.min(x) - 1, np.max(x) + 1)
+        plt.ylim(np.max(y) + 1, np.min(y) - 1)
+
+        plt.show()
+
+    def plot_skeleton(self, init_kps, noise_kps, pairs, h, w, title):
+        print('Title', title)
+        fig, (ax1, ax2) = plt.subplots(1, 2)
+
+        # scatter1 = ax1.scatter([], [], s=5, color='red', label='Keypoints')
+        # scatter2 = ax2.scatter([], [], s=5, color='red', label='Keypoints')
+
+        minx, maxx = np.min(init_kps[:, :, 0]) - 50, np.max(init_kps[:, :, 0]) + 50
+        miny, maxy = np.min(init_kps[:, :, 1]) - 50, np.max(init_kps[:, :, 1]) + 50
+
         def update(frame):
-            ax.cla()
+            ax1.cla()
+            ax2.cla()
 
-            ax.set_xlim(np.min(keypoints[:, :, 0]), np.max(keypoints[:, :, 0]))
-            ax.set_ylim(np.max(keypoints[:, :, 1]), np.min(keypoints[:, :, 1]))
+            scatter1 = ax1.scatter([], [], c='red', s=10, animated=True)
+            scatter2 = ax2.scatter([], [], c='red', s=10, animated=True)
 
-            # ax.set_xlim([0, h])
-            # ax.set_ylim([w, 0])
+            ax1.set_xlim(minx, maxx)
+            ax1.set_ylim(maxy, miny)
+            ax2.set_xlim(minx, maxx)
+            ax2.set_ylim(maxy, miny)
 
-            scatter.set_offsets(keypoints[frame])
+            ax1.axis('equal')
+            ax2.axis('equal')
+
+            scatter1.set_offsets(init_kps[frame])
+            scatter2.set_offsets(noise_kps[frame])
 
             for connection in pairs:
-                start_point = keypoints[frame][connection[0]]
-                end_point = keypoints[frame][connection[1]]
-                line = ax.plot(*zip(start_point, end_point), color='blue')
-                lines.append(line)
+                start_point1 = init_kps[frame][connection[0]]
+                end_point1 = init_kps[frame][connection[1]]
+
+                start_point2 = noise_kps[frame][connection[0]]
+                end_point2 = noise_kps[frame][connection[1]]
+
+                ax1.plot(*zip(start_point1, end_point1), color='blue', alpha=1)
+                ax2.plot(*zip(start_point2, end_point2), color='blue', alpha=1)
+
+            return scatter1, scatter2
 
         # Create the animation
-        ani = animation.FuncAnimation(fig, update, frames=len(keypoints), interval=200)
-        # return ani
+        ani = animation.FuncAnimation(fig, update, frames=len(init_kps), interval=200)
 
         # Set up the video writer
         Writer = animation.writers['ffmpeg']
-        writer = Writer(fps=10, metadata=dict(artist='Me'), bitrate=1800)
+        writer = Writer(fps=10, metadata=dict(artist='Me'))
 
-        # Save the animation as a video file
         ani.save(f'videos_compose/{title}.mp4', writer=writer)
+        print('! videos_compose')
         # ani.save(f'videos_compose/animation_{title}.gif', writer=writer)
 
-        print('! videos_compose')
 
     def __call__(self, data):
         """Call function to apply transforms sequentially.
@@ -115,10 +168,28 @@ class Compose:
                 first_iter = False
                 h, w = data['img_shape']
                 init_kps = data['keypoint'].copy()
-                data['keypoint'] = self.add_random_noise(data['keypoint'], h, w)
-                label = data['label']
 
-                # self.plot_skeleton(init_kps[0], skeletons, h, w, f'init_kps_{label}_{random_number}')
+                # print('Noise', self.noise_alpha)
+
+                if self.noise_alpha != 0:
+                    data['keypoint'] = self.add_random_noise(data['keypoint'], h, w)
+                    label = data['label']
+
+                    # self.plot_skeleton(init_kps[0], data['keypoint'][0], skeletons, h, w,
+                    #                    f'val_kps_with_noise_{label}_{self.noise_alpha}_{random_number}')
+
+                # print('Kek')
+
+                # assert init_kps[:, :, :, 0] <= w
+                # assert init_kps[:, :, :, 1] <= h
+
+                # if label == 27:
+                # self.plot_skeleton_sc(init_kps[0], skeletons, h, w, f'sc_init_kps_{label}_{random_number}')
+                # self.plot_skeleton_sc(data['keypoint'][0], skeletons, h, w, f'sc_noise_kps_{label}_{random_number}')
+
+                # self.plot_skeleton(init_kps[0], data['keypoint'][0], skeletons, h, w,
+                #                    f'val_kps_with_noise_{label}_{random_number}')
+                # print('kek')
                 # self.plot_skeleton(data['keypoint'][0], skeletons, h, w, f'noise_kps_{label}_{random_number}')
 
             data = t(data)
