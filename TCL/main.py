@@ -42,15 +42,6 @@ def main():
 
     print(args)
 
-    ##asset check ####
-    if args.use_finetuning:
-        assert args.finetune_start_epoch > args.sup_thresh
-
-    # num_class, args.train_list, args.val_list, args.root_path, prefix = dataset_config.return_dataset(args.dataset,
-    #                                                                                                   args.modality)
-    full_arch_name = args.arch
-
-
     backbone = dict(
         type='ResNet3dSlowOnly',
         in_channels=args.in_channels,
@@ -247,10 +238,6 @@ def main():
         dict(type='ToTensor', keys=['imgs'])
     ]
 
-    # labeled_dataset = PoseDataset(ann_file=ann_file,
-    #                               pipeline=train_pipeline,
-    #                               split='xsub_train')
-
     train_c = dict(
         type='RepeatDataset',
         times=1,
@@ -419,10 +406,7 @@ def train(labeled_trainloader, unlabeled_trainloader, model, criterion, optimize
         else:
             input = images_init
             target = unlabeled_data[0]['label']
-            # input = labeled_data['imgs']
-            # target = labeled_data['label']
             target = target.cuda()
-            # input = input.cuda()
         input = torch.autograd.Variable(input)
         target_var = torch.autograd.Variable(target)
         output = model(input)
@@ -574,15 +558,6 @@ def compute_group_contrastive_loss(grp_dict_un, grp_dict_lab):
 
 
 def save_checkpoint(state, is_best, one_stage_pl=False):
-    # filename = '%s/%s/ckpt.pth.tar' % (args.root_model, args.store_name)
-    # list(map(str, original_list))
-    # store_name = '_'.join(
-    #     list(map(str, ['TCL', state['wandb_name'],
-    #      args.gamma,
-    #      args.sup_thresh, args.epochs, args.batch_size,
-    #      state['optimizer']['param_groups'][0]['lr'], state['optimizer']['param_groups'][0]['weight_decay'],
-    #      state['scheduler']['step_size'], state['scheduler']['gamma'],
-    #      datetime.datetime.now().strftime("%Y%m%d-%H%M%S")])))
 
     filename = '%s/%s/ckpt.pth.tar' % (args.root_model, args.store_name)
     # filename = f'{args.root_model}/{state['scheduler']['step_size']}_{state['scheduler']['step_size']}{state['scheduler']['gamma']}/ckpt.pth.tar'

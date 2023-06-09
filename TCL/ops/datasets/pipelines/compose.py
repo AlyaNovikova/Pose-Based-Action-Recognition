@@ -42,10 +42,6 @@ class Compose:
         diff_coeff = max(0.2, min(1, np.sqrt(total_difference / 10000)))
         alpha = self.noise_alpha * diff_coeff
 
-        # random_number = random.randint(0, 1000)
-        # if random_number < 2:
-        #     print('Alpha', self.noise_alpha, alpha)
-
         mean = 0
         std_h = alpha * h
         std_w = alpha * w
@@ -60,9 +56,6 @@ class Compose:
 
             new_x = x + delta_x
             new_y = y + delta_y
-
-            # new_x = max(0, min(w, x + delta_x))
-            # new_y = max(0, min(h, y + delta_y))
 
             new_kps_flat.append([new_x, new_y])
 
@@ -80,12 +73,6 @@ class Compose:
 
         for limb in pairs:
             plt.plot([x[limb[0]], x[limb[1]]], [y[limb[0]], y[limb[1]]], 'g-', linewidth=2)
-
-        # plt.plot(x, y, 'r-', linewidth=2)
-
-        # Add labels to keypoints
-        # for i, (x_coord, y_coord) in enumerate(zip(x, y)):
-        #     plt.text(x_coord, y_coord, str(i + 1), color='b')
 
         # Set axis limits
         plt.xlim(np.min(x) - 1, np.max(x) + 1)
@@ -169,28 +156,9 @@ class Compose:
                 h, w = data['img_shape']
                 init_kps = data['keypoint'].copy()
 
-                # print('Noise', self.noise_alpha)
-
                 if self.noise_alpha != 0:
                     data['keypoint'] = self.add_random_noise(data['keypoint'], h, w)
                     label = data['label']
-
-                    # self.plot_skeleton(init_kps[0], data['keypoint'][0], skeletons, h, w,
-                    #                    f'val_kps_with_noise_{label}_{self.noise_alpha}_{random_number}')
-
-                # print('Kek')
-
-                # assert init_kps[:, :, :, 0] <= w
-                # assert init_kps[:, :, :, 1] <= h
-
-                # if label == 27:
-                # self.plot_skeleton_sc(init_kps[0], skeletons, h, w, f'sc_init_kps_{label}_{random_number}')
-                # self.plot_skeleton_sc(data['keypoint'][0], skeletons, h, w, f'sc_noise_kps_{label}_{random_number}')
-
-                # self.plot_skeleton(init_kps[0], data['keypoint'][0], skeletons, h, w,
-                #                    f'val_kps_with_noise_{label}_{random_number}')
-                # print('kek')
-                # self.plot_skeleton(data['keypoint'][0], skeletons, h, w, f'noise_kps_{label}_{random_number}')
 
             data = t(data)
             if data is None:
